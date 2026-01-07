@@ -6,11 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Navigate } from "react-router-dom";
 
 export default function Login() {
-  const navigate = useNavigate();
-const [email, setEmail] = useState("rayane@test.com");
-const [password, setPassword] = useState("Rayane2406!");
+
+    const token = localStorage.getItem("token");
+    if (token) return <Navigate to="/" replace />;
+
+    const navigate = useNavigate();
+    const [email, setEmail] = useState("rayane@test.com");
+    const [password, setPassword] = useState("Rayane2406!");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
