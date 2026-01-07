@@ -1,0 +1,16 @@
+export async function login(email: string, password: string) {
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+  const txt = await res.text();
+  console.error("LOGIN ERROR", res.status, txt);
+  throw new Error("Invalid credentials");
+}
+
+
+  return res.json() as Promise<{ token: string }>;
+}
