@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+}
+
+model Supplier {
+  id        String    @id @default(uuid())
+  name      String
+  invoices  Invoice[]
+  createdAt DateTime @default(now())
+}
+
+model Invoice {
+  id            String     @id @default(uuid())
+  invoiceNumber String     @unique
+  supplierId    String
+  supplier      Supplier   @relation(fields: [supplierId], references: [id])
+  invoiceDate   DateTime
+  dueDate       DateTime
+  amountHT      Float
+  amountTVA     Float
+  amountTTC     Float
+  status        String
+  documents     Document[]
+  createdAt     DateTime   @default(now())
+
+  @@index([supplierId])
+  @@index([invoiceDate])
+  @@index([status])
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  url       String
+  type      String
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+}
