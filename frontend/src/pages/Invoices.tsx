@@ -51,6 +51,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Card } from "@/components/ui/card";
+import { MoreHorizontal, Download, Pencil, Trash2, Plus } from "lucide-react";
 
 const STATUSES = ["PAID", "PENDING", "OVERDUE"] as const;
 
@@ -130,7 +132,6 @@ export default function Invoices() {
   function resetCreateForm() {
     setCreateError("");
     setCreateSaving(false);
-
     setNextNumber("");
 
     setCreateSupplierMode("existing");
@@ -145,7 +146,6 @@ export default function Invoices() {
     setCreateFiles([]);
   }
 
-  // Load next invoice number + suppliers when opening create drawer
   useEffect(() => {
     if (!createOpen) return;
 
@@ -194,7 +194,6 @@ export default function Invoices() {
 
     setCreateSaving(true);
     try {
-      // 1) Upload docs (direct to S3)
       const uploadedDocs: CreateInvoiceInput["documents"] = [];
 
       for (const f of createFiles) {
@@ -202,12 +201,11 @@ export default function Invoices() {
         await uploadToSignedUrl(uploadUrl, f);
 
         uploadedDocs.push({
-          url: key, // S3 key
+          url: key,
           type: f.type === "application/pdf" ? "PDF" : "IMAGE",
         });
       }
 
-      // 2) Create invoice (backend auto-generates invoiceNumber)
       const payload: CreateInvoiceInput = {
         invoiceDate: createInvoiceDate,
         dueDate: createDueDate,
@@ -222,11 +220,8 @@ export default function Invoices() {
       };
 
       const created = await createInvoice(payload);
-
-      // add immediately
       setItems((prev) => [created, ...prev]);
 
-      // refresh suppliers list (if a new supplier was created)
       try {
         const sup = await getSuppliers();
         setSuppliers(sup.items);
@@ -283,7 +278,7 @@ export default function Invoices() {
   }
 
   // =========================
-  // Edit drawer (v1: edit core fields, not docs)
+  // Edit drawer (v1)
   // =========================
   const [editOpen, setEditOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -317,13 +312,10 @@ export default function Invoices() {
     setEditing(inv);
     setEditError("");
 
-    // supplier: we only have supplierName in list view, so default to "new" mode with name prefilled
-    // You can improve later by returning supplierId in listInvoices.
     setEditSupplierMode("new");
     setEditSupplierId("");
     setEditSupplierNewName(inv.supplierName ?? "");
 
-    // Dates: convert ISO -> YYYY-MM-DD
     const toYMD = (iso: string) => {
       const d = new Date(iso);
       if (Number.isNaN(d.getTime())) return "";
@@ -332,7 +324,7 @@ export default function Invoices() {
 
     setEditInvoiceDate(toYMD(inv.invoiceDate));
     setEditDueDate(toYMD(inv.dueDate));
-    setEditAmountHT(""); // optional: keep empty unless you return amountHT from API
+    setEditAmountHT("");
     setEditStatus((inv.status as any) ?? "PENDING");
 
     setEditOpen(true);
@@ -342,8 +334,6 @@ export default function Invoices() {
     setEditError("");
     if (!editing) return;
 
-    // For now, we require date/due/status + amountHT to recompute TVA/TTC.
-    // If you return amountHT from API, you can prefill and relax these.
     if (!editInvoiceDate || !editDueDate || !editAmountHT) {
       setEditError("Tous les champs sont requis (v1).");
       return;
@@ -379,10 +369,8 @@ export default function Invoices() {
       else patch.supplierName = editSupplierNewName.trim();
 
       const updated = await updateInvoice(editing.id, patch);
-
       setItems((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
 
-      // refresh suppliers list if needed
       try {
         const sup = await getSuppliers();
         setSuppliers(sup.items);
@@ -401,11 +389,12 @@ export default function Invoices() {
   // UI
   // =========================
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Gestion des factures</h1>
-          <p className="text-muted-foreground">
+      <div className="w-full space-y-6 px-4 py-6 md:px-8">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Gestion des factures</h1>
+          <p className="text-sm text-muted-foreground">
             Upload cloud + téléchargement + édition + suppression.
           </p>
         </div>
@@ -419,15 +408,18 @@ export default function Invoices() {
           }}
         >
           <SheetTrigger asChild>
-            <Button>Ajouter une facture</Button>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              Ajouter une facture
+            </Button>
           </SheetTrigger>
 
-          <SheetContent className="w-full sm:max-w-lg">
+          <SheetContent className="w-full sm:max-w-lg px-6 sm:px-8">
             <SheetHeader>
-              <SheetTitle>Nouvelle facture</SheetTitle>
+              <SheetTitle>Création d'une nouvelle facture</SheetTitle>
             </SheetHeader>
 
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 space-y-6 pb-8">
               {/* Auto invoice number */}
               <div className="space-y-2">
                 <Label>Numéro de facture</Label>
@@ -445,25 +437,21 @@ export default function Invoices() {
                   <Label>Fournisseur</Label>
                   <button
                     type="button"
-                    className="text-xs text-muted-foreground underline"
+                    className="text-xs text-muted-foreground underline underline-offset-4"
                     onClick={() => {
-                      setCreateSupplierMode((m) =>
-                        m === "existing" ? "new" : "existing"
-                      );
+                      setCreateSupplierMode((m) => (m === "existing" ? "new" : "existing"));
                       setCreateSupplierId("");
                       setCreateSupplierNewName("");
                     }}
                   >
-                    {createSupplierMode === "existing"
-                      ? "Créer un fournisseur"
-                      : "Choisir existant"}
+                    {createSupplierMode === "existing" ? "Créer un nouveau fournisseur" : "Choisir un fournisseur existant"}
                   </button>
                 </div>
 
                 {createSupplierMode === "existing" ? (
                   <Select value={createSupplierId} onValueChange={setCreateSupplierId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Choisir un fournisseur" />
+                      <SelectValue placeholder="Choisir un fournisseur parmi ceux existant" />
                     </SelectTrigger>
                     <SelectContent>
                       {suppliers.map((s) => (
@@ -483,7 +471,7 @@ export default function Invoices() {
               </div>
 
               {/* Dates */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="createInvoiceDate">Date facture</Label>
                   <Input
@@ -493,7 +481,6 @@ export default function Invoices() {
                     onChange={(e) => setCreateInvoiceDate(e.target.value)}
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="createDueDate">Échéance</Label>
                   <Input
@@ -506,7 +493,7 @@ export default function Invoices() {
               </div>
 
               {/* Amount + status */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="createAmountHT">Montant HT</Label>
                   <Input
@@ -517,13 +504,9 @@ export default function Invoices() {
                     placeholder="100.00"
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label>Statut</Label>
-                  <Select
-                    value={createStatus}
-                    onValueChange={(v) => setCreateStatus(v as any)}
-                  >
+                  <Select value={createStatus} onValueChange={(v) => setCreateStatus(v as any)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -545,9 +528,7 @@ export default function Invoices() {
                   type="file"
                   accept="application/pdf,image/*"
                   multiple
-                  onChange={(e) =>
-                    setCreateFiles(Array.from(e.target.files ?? []))
-                  }
+                  onChange={(e) => setCreateFiles(Array.from(e.target.files ?? []))}
                 />
                 {createFiles.length > 0 && (
                   <p className="text-xs text-muted-foreground">
@@ -557,18 +538,22 @@ export default function Invoices() {
               </div>
 
               {/* Totals */}
-              <div className="rounded-md border p-3 text-sm">
+              <div className="rounded-md border bg-muted/20 p-4 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">TVA (20%)</span>
                   <span>{createAmountTVA.toFixed(2)} €</span>
                 </div>
-                <div className="mt-1 flex justify-between font-medium">
+                <div className="mt-2 flex justify-between font-medium">
                   <span>Total TTC</span>
                   <span>{createAmountTTC.toFixed(2)} €</span>
                 </div>
               </div>
 
-              {createError && <p className="text-sm text-red-500">{createError}</p>}
+              {createError && (
+                <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+                  {createError}
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <Button className="flex-1" onClick={onCreateInvoice} disabled={createSaving}>
@@ -590,81 +575,92 @@ export default function Invoices() {
         </Sheet>
       </div>
 
-      {loading && <p className="text-sm text-muted-foreground">Chargement…</p>}
-      {error && <p className="text-sm text-red-500">{error}</p>}
-
-      {!loading && !error && (
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>N°</TableHead>
-                <TableHead>Fournisseur</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Échéance</TableHead>
-                <TableHead className="text-right">TTC</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Docs</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {items.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.invoiceNumber}</TableCell>
-                  <TableCell>{r.supplierName ?? "—"}</TableCell>
-                  <TableCell>{formatDateFR(r.invoiceDate)}</TableCell>
-                  <TableCell>{formatDateFR(r.dueDate)}</TableCell>
-                  <TableCell className="text-right">
-                    {Number(r.amountTTC).toFixed(2)} €
-                  </TableCell>
-                  <TableCell>{r.status}</TableCell>
-                  <TableCell className="text-right">{r.documentsCount}</TableCell>
-
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          …
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onDownloadFirstDoc(r)}>
-                          Télécharger document
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openEdit(r)}>
-                          Éditer
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => {
-                            setToDelete(r);
-                            setDeleteOpen(true);
-                          }}
-                        >
-                          Supprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-
-              {items.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="py-8 text-center text-sm text-muted-foreground"
-                  >
-                    Aucune facture pour le moment.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+      {/* Global error */}
+      {error && (
+        <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
         </div>
       )}
+
+      {/* Table */}
+      <Card className="overflow-hidden">
+        <div className="p-4 sm:p-5">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Chargement…</p>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>N°</TableHead>
+                    <TableHead>Fournisseur</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Échéance</TableHead>
+                    <TableHead className="text-right">TTC</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead className="text-right">Docs</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {items.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.invoiceNumber}</TableCell>
+                      <TableCell>{r.supplierName ?? "—"}</TableCell>
+                      <TableCell>{formatDateFR(r.invoiceDate)}</TableCell>
+                      <TableCell>{formatDateFR(r.dueDate)}</TableCell>
+                      <TableCell className="text-right">
+                        {Number(r.amountTTC).toFixed(2)} €
+                      </TableCell>
+                      <TableCell>{r.status}</TableCell>
+                      <TableCell className="text-right">{r.documentsCount}</TableCell>
+
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => onDownloadFirstDoc(r)}>
+                              <Download className="mr-2 h-4 w-4" />
+                              Télécharger document
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEdit(r)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Éditer
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => {
+                                setToDelete(r);
+                                setDeleteOpen(true);
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Supprimer
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+
+                  {items.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                        Aucune facture pour le moment.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* DELETE CONFIRM */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -673,15 +669,10 @@ export default function Invoices() {
             <DialogTitle>Supprimer la facture ?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Cette action est irréversible. Les documents resteront dans le cloud
-            pour l’instant (nettoyage possible plus tard).
+            Cette action est irréversible. Les documents resteront dans le cloud pour l’instant.
           </p>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteOpen(false)}
-              disabled={deleting}
-            >
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
               Annuler
             </Button>
             <Button onClick={confirmDelete} disabled={deleting}>
@@ -715,7 +706,7 @@ export default function Invoices() {
             <SheetTitle>Éditer la facture</SheetTitle>
           </SheetHeader>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 space-y-6">
             <div className="space-y-2">
               <Label>Numéro de facture</Label>
               <div className="rounded-md border bg-muted px-3 py-2 text-sm">
@@ -728,19 +719,16 @@ export default function Invoices() {
                 <Label>Fournisseur</Label>
                 <button
                   type="button"
-                  className="text-xs text-muted-foreground underline"
+                  className="text-xs text-muted-foreground underline underline-offset-4"
                   onClick={() => {
                     setEditSupplierMode((m) => (m === "existing" ? "new" : "existing"));
                     setEditSupplierId("");
-                    // keep name when switching to new
                     if (editSupplierMode === "existing" && editing?.supplierName) {
                       setEditSupplierNewName(editing.supplierName);
                     }
                   }}
                 >
-                  {editSupplierMode === "existing"
-                    ? "Créer/choisir par nom"
-                    : "Choisir existant"}
+                  {editSupplierMode === "existing" ? "Créer/choisir par nom" : "Choisir existant"}
                 </button>
               </div>
 
@@ -766,7 +754,7 @@ export default function Invoices() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="editInvoiceDate">Date facture</Label>
                 <Input
@@ -788,7 +776,7 @@ export default function Invoices() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="editAmountHT">Montant HT</Label>
                 <Input
@@ -820,18 +808,22 @@ export default function Invoices() {
               </div>
             </div>
 
-            <div className="rounded-md border p-3 text-sm">
+            <div className="rounded-md border bg-muted/20 p-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">TVA (20%)</span>
                 <span>{editAmountTVA.toFixed(2)} €</span>
               </div>
-              <div className="mt-1 flex justify-between font-medium">
+              <div className="mt-2 flex justify-between font-medium">
                 <span>Total TTC</span>
                 <span>{editAmountTTC.toFixed(2)} €</span>
               </div>
             </div>
 
-            {editError && <p className="text-sm text-red-500">{editError}</p>}
+            {editError && (
+              <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+                {editError}
+              </div>
+            )}
 
             <div className="flex gap-2">
               <Button className="flex-1" onClick={onUpdateInvoice} disabled={editSaving || !editing}>

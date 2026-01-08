@@ -1,5 +1,5 @@
 // frontend/src/api/invoices.ts
-export type InvoiceDocRef = { id: string; type: "PDF" | "IMAGE" | string };
+export type InvoiceDocRef = { id: string; type: string };
 
 export type InvoiceRow = {
   id: string;
