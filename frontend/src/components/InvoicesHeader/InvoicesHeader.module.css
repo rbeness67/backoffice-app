@@ -1,0 +1,29 @@
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.titleBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+@media (min-width: 640px) {
+  .header {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}

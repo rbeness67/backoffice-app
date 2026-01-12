@@ -22,23 +22,25 @@ model Supplier {
   createdAt DateTime @default(now())
 }
 
+enum InvoiceStructure {
+  STRUCTURE_1
+  STRUCTURE_2
+}
+
 model Invoice {
-  id            String     @id @default(uuid())
-  invoiceNumber String     @unique
+  id            String           @id @default(uuid())
+  invoiceNumber String           @unique
   supplierId    String
-  supplier      Supplier   @relation(fields: [supplierId], references: [id])
+  supplier      Supplier         @relation(fields: [supplierId], references: [id])
   invoiceDate   DateTime
-  dueDate       DateTime
-  amountHT      Float
-  amountTVA     Float
   amountTTC     Float
-  status        String
+  structure     InvoiceStructure
   documents     Document[]
-  createdAt     DateTime   @default(now())
+  createdAt     DateTime         @default(now())
 
   @@index([supplierId])
   @@index([invoiceDate])
-  @@index([status])
+  @@index([structure])
 }
 
 model Document {

@@ -1,3 +1,6 @@
+-- CreateEnum
+CREATE TYPE "InvoiceStructure" AS ENUM ('STRUCTURE_1', 'STRUCTURE_2');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
@@ -24,11 +27,8 @@ CREATE TABLE "Invoice" (
     "invoiceNumber" TEXT NOT NULL,
     "supplierId" TEXT NOT NULL,
     "invoiceDate" TIMESTAMP(3) NOT NULL,
-    "dueDate" TIMESTAMP(3) NOT NULL,
-    "amountHT" DOUBLE PRECISION NOT NULL,
-    "amountTVA" DOUBLE PRECISION NOT NULL,
     "amountTTC" DOUBLE PRECISION NOT NULL,
-    "status" TEXT NOT NULL,
+    "structure" "InvoiceStructure" NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Invoice_pkey" PRIMARY KEY ("id")
@@ -58,7 +58,7 @@ CREATE INDEX "Invoice_supplierId_idx" ON "Invoice"("supplierId");
 CREATE INDEX "Invoice_invoiceDate_idx" ON "Invoice"("invoiceDate");
 
 -- CreateIndex
-CREATE INDEX "Invoice_status_idx" ON "Invoice"("status");
+CREATE INDEX "Invoice_structure_idx" ON "Invoice"("structure");
 
 -- CreateIndex
 CREATE INDEX "Document_invoiceId_idx" ON "Document"("invoiceId");

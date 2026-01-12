@@ -1,6 +1,7 @@
 // backend/src/modules/invoices/invoices.controller.ts
 import { Request, Response } from "express";
 import prisma from "../../prisma/client";
+import { InvoiceStructure } from "@prisma/client";
 
 /**
  * Génère le prochain numéro de facture pour l'année en cours :
@@ -34,7 +35,10 @@ async function getNextInvoiceNumberForCurrentYear(tx: typeof prisma) {
  */
 export async function listInvoices(req: Request, res: Response) {
   const page = Math.max(parseInt(String(req.query.page ?? "1"), 10), 1);
-  const pageSize = Math.min(Math.max(parseInt(String(req.query.pageSize ?? "20"), 10), 1), 100);
+  const pageSize = Math.min(
+    Math.max(parseInt(String(req.query.pageSize ?? "20"), 10), 1),
+    100
+  );
   const skip = (page - 1) * pageSize;
 
   const [total, items] = await Promise.all([
@@ -59,15 +63,15 @@ export async function listInvoices(req: Request, res: Response) {
       invoiceNumber: inv.invoiceNumber,
       supplierName: inv.supplier?.name ?? null,
       invoiceDate: inv.invoiceDate,
-      dueDate: inv.dueDate,
       amountTTC: inv.amountTTC,
-      status: inv.status,
+      structure: inv.structure,
       documentsCount: inv.documents.length,
-      documents: inv.documents.map((d) => ({ id: d.id, type: d.type })), // le front utilise id
+      documents: inv.documents.map((d) => ({ id: d.id, type: d.type })),
       createdAt: inv.createdAt,
     })),
   });
 }
+
 export async function getInvoiceDocuments(req: Request, res: Response) {
   const { id } = req.params;
 
@@ -99,33 +103,42 @@ export async function getNextInvoiceNumber(req: Request, res: Response) {
  * - invoiceNumber généré automatiquement
  * - supplier: soit supplierId, soit supplierName (create-if-not-exists)
  * - documents: [{ url: <s3-key>, type: "PDF"|"IMAGE" }]
+ * - structure: "STRUCTURE_1" | "STRUCTURE_2"
+ *
+ * NOTE: on accepte temporairement invoiceStructure côté front (transition)
  */
 export async function createInvoice(req: Request, res: Response) {
   const {
     supplierId,
     supplierName,
     invoiceDate,
-    dueDate,
-    amountHT,
-    amountTVA,
     amountTTC,
-    status,
+    structure,
+    invoiceStructure,
     documents,
   } = req.body ?? {};
 
-  // 🔎 DEBUG temporaire
-  console.log("POST /invoices documents =", documents);
+  const finalStructure = (structure ?? invoiceStructure) as InvoiceStructure | undefined;
 
   if (
     !invoiceDate ||
-    !dueDate ||
-    amountHT === undefined ||
-    amountTVA === undefined ||
     amountTTC === undefined ||
-    !status ||
+    !finalStructure ||
     (!supplierId && !supplierName)
   ) {
+    console.log("POST /invoices body =", req.body);
     return res.status(400).json({ message: "Missing required fields" });
+  }
+
+  // validate amount
+  const ttc = Number(amountTTC);
+  if (!Number.isFinite(ttc) || ttc <= 0) {
+    return res.status(400).json({ message: "Invalid amountTTC" });
+  }
+
+  // validate structure (enum)
+  if (!Object.values(InvoiceStructure).includes(finalStructure)) {
+    return res.status(400).json({ message: "Invalid structure" });
   }
 
   const docs = Array.isArray(documents) ? documents : [];
@@ -140,32 +153,32 @@ export async function createInvoice(req: Request, res: Response) {
 
       if (!finalSupplierId) {
         const name = String(supplierName).trim();
+        if (!name) return Promise.reject(new Error("Invalid supplierName"));
+
         const existing = await tx.supplier.findFirst({
           where: { name: { equals: name, mode: "insensitive" } },
           select: { id: true },
         });
 
         finalSupplierId =
-          existing?.id ?? (await tx.supplier.create({ data: { name }, select: { id: true } })).id;
+          existing?.id ??
+          (await tx.supplier.create({ data: { name }, select: { id: true } })).id;
       }
 
       // 2) invoice number auto
       const invoiceNumber = await getNextInvoiceNumberForCurrentYear(tx);
 
-      // 3) create invoice + documents (✅ écrit en DB)
+      // 3) create invoice + documents
       const invoice = await tx.invoice.create({
         data: {
           invoiceNumber,
           supplierId: finalSupplierId!,
           invoiceDate: new Date(invoiceDate),
-          dueDate: new Date(dueDate),
-          amountHT: Number(amountHT),
-          amountTVA: Number(amountTVA),
-          amountTTC: Number(amountTTC),
-          status: String(status),
+          amountTTC: ttc,
+          structure: finalStructure,
           documents: {
             create: docs.map((d: any) => ({
-              url: String(d.url),   // S3 key
+              url: String(d.url),
               type: String(d.type), // PDF | IMAGE
             })),
           },
@@ -179,11 +192,10 @@ export async function createInvoice(req: Request, res: Response) {
     return res.status(201).json({
       id: created.id,
       invoiceNumber: created.invoiceNumber,
-      supplierName: created.supplier.name,
+      supplierName: created.supplier?.name ?? null,
       invoiceDate: created.invoiceDate,
-      dueDate: created.dueDate,
       amountTTC: created.amountTTC,
-      status: created.status,
+      structure: created.structure,
       documentsCount: created.documents.length,
       documents: created.documents.map((d) => ({ id: d.id, type: d.type })),
       createdAt: created.createdAt,
@@ -197,10 +209,12 @@ export async function createInvoice(req: Request, res: Response) {
   }
 }
 
-
 /**
  * PATCH /invoices/:id
  * Edit des champs principaux (pas de gestion docs ici)
+ * - structure peut être modifiée
+ *
+ * NOTE: on accepte temporairement invoiceStructure côté front (transition)
  */
 export async function updateInvoice(req: Request, res: Response) {
   const { id } = req.params;
@@ -209,19 +223,37 @@ export async function updateInvoice(req: Request, res: Response) {
     supplierId,
     supplierName,
     invoiceDate,
-    dueDate,
-    amountHT,
-    amountTVA,
     amountTTC,
-    status,
+    structure,
+    invoiceStructure,
   } = req.body ?? {};
+
+  const finalStructure = (structure ?? invoiceStructure) as InvoiceStructure | undefined;
+
+  // validate structure if provided
+  if (
+    finalStructure !== undefined &&
+    !Object.values(InvoiceStructure).includes(finalStructure)
+  ) {
+    return res.status(400).json({ message: "Invalid structure" });
+  }
+
+  // validate amount if provided
+  if (amountTTC !== undefined) {
+    const ttc = Number(amountTTC);
+    if (!Number.isFinite(ttc) || ttc <= 0) {
+      return res.status(400).json({ message: "Invalid amountTTC" });
+    }
+  }
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
       let finalSupplierId: string | undefined = supplierId;
 
-      if (!finalSupplierId && supplierName) {
+      if (!finalSupplierId && supplierName !== undefined) {
         const name = String(supplierName).trim();
+        if (!name) return Promise.reject(new Error("Invalid supplierName"));
+
         const existing = await tx.supplier.findFirst({
           where: { name: { equals: name, mode: "insensitive" } },
           select: { id: true },
@@ -237,11 +269,8 @@ export async function updateInvoice(req: Request, res: Response) {
         data: {
           supplierId: finalSupplierId,
           invoiceDate: invoiceDate ? new Date(invoiceDate) : undefined,
-          dueDate: dueDate ? new Date(dueDate) : undefined,
-          amountHT: amountHT !== undefined ? Number(amountHT) : undefined,
-          amountTVA: amountTVA !== undefined ? Number(amountTVA) : undefined,
           amountTTC: amountTTC !== undefined ? Number(amountTTC) : undefined,
-          status: status !== undefined ? String(status) : undefined,
+          structure: finalStructure !== undefined ? finalStructure : undefined,
         },
         include: { supplier: true, documents: true },
       });
@@ -252,11 +281,10 @@ export async function updateInvoice(req: Request, res: Response) {
     return res.json({
       id: updated.id,
       invoiceNumber: updated.invoiceNumber,
-      supplierName: updated.supplier.name,
+      supplierName: updated.supplier?.name ?? null,
       invoiceDate: updated.invoiceDate,
-      dueDate: updated.dueDate,
       amountTTC: updated.amountTTC,
-      status: updated.status,
+      structure: updated.structure,
       documentsCount: updated.documents.length,
       documents: updated.documents.map((d) => ({ id: d.id, type: d.type })),
       createdAt: updated.createdAt,

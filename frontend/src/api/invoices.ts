@@ -1,16 +1,16 @@
 // frontend/src/api/invoices.ts
+
 export type InvoiceDocRef = { id: string; type: string };
 
 export type InvoiceRow = {
   id: string;
   invoiceNumber: string;
   supplierName: string | null;
-  invoiceDate: string;
-  dueDate: string;
+  invoiceDate: string; // YYYY-MM-DD (ou ISO selon backend)
   amountTTC: number;
-  status: string;
+  invoiceStructure: string;
   documentsCount: number;
-  documents?: InvoiceDocRef[]; // ✅
+  documents?: InvoiceDocRef[];
   createdAt: string;
 };
 
@@ -25,17 +25,15 @@ export type CreateInvoiceInput = {
   supplierName?: string;
 
   invoiceDate: string; // YYYY-MM-DD
-  dueDate: string;     // YYYY-MM-DD
-
-  amountHT: number;
-  amountTVA: number;
   amountTTC: number;
 
-  status: string; // "PAID" | "PENDING" | "OVERDUE"
+  structure: string; // ex: "PAID" | "PENDING" | "OVERDUE" (à aligner avec ton enum)
 
   // at least one document
   documents: InvoiceDocumentInput[];
 };
+
+export type UpdateInvoiceInput = Partial<Pick<CreateInvoiceInput, "invoiceDate" | "amountTTC" | "structure">>;
 
 function getAuthHeaders(extra?: Record<string, string>) {
   const token = localStorage.getItem("token");
@@ -99,13 +97,15 @@ export async function deleteInvoice(id: string) {
   if (!res.ok) throw new Error(await res.text());
 }
 
-export async function updateInvoice(id: string, input: Partial<CreateInvoiceInput>) {
+export async function updateInvoice(id: string, input: UpdateInvoiceInput) {
   const res = await fetch(`${import.meta.env.VITE_API_URL}/invoices/${id}`, {
     method: "PATCH",
     headers: getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(input),
   });
+
   const text = await res.text();
   if (!res.ok) throw new Error(text || "Failed to update invoice");
+
   return JSON.parse(text) as InvoiceRow;
 }
