@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
-import { getToken } from "./authToken";
+import { getToken } from "@/utils/authtoken";
 
 export default function ProtectedRoutes() {
   const navigate = useNavigate();
