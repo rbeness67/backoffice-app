@@ -1,18 +1,23 @@
 // backend/src/modules/invoices/invoices.controller.ts
 import { Request, Response } from "express";
 import prisma from "../../prisma/client";
-import { InvoiceStructure } from "@prisma/client";
+import { InvoiceStructure, Prisma, PrismaClient } from "@prisma/client";
+
+/**
+ * Prisma client utilisable en dehors ou à l'intérieur d'une transaction
+ */
+type DbClient = PrismaClient | Prisma.TransactionClient;
 
 /**
  * Génère le prochain numéro de facture pour l'année en cours :
  * Format: JEL-YY-XXX (ex: JEL-26-001)
  */
-async function getNextInvoiceNumberForCurrentYear(tx: typeof prisma) {
+async function getNextInvoiceNumberForCurrentYear(db: DbClient) {
   const year = new Date().getFullYear();
   const yy = String(year).slice(-2);
   const prefix = `JEL-${yy}-`;
 
-  const last = await tx.invoice.findFirst({
+  const last = await db.invoice.findFirst({
     where: { invoiceNumber: { startsWith: prefix } },
     orderBy: { invoiceNumber: "desc" },
     select: { invoiceNumber: true },
