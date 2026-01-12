@@ -1,48 +1,45 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createInvoice,
   getNextInvoiceNumber,
   type CreateInvoiceInput,
+  type InvoiceRow,
 } from "@/api/invoices";
 import { getSuppliers, type Supplier } from "@/api/suppliers";
 import { presignUpload, uploadToSignedUrl } from "@/api/uploads";
-import { type InvoiceStructure } from "../../utils/format";
+import { type InvoiceStructure } from "@/utils/format";
 
-function slugify(input: string) {
-  return (input || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // remove accents
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toUpperCase();
-}
+type ExistingInvoiceLike = {
+  invoiceDate: string;
+  amountTTC: number | string;
+  invoiceStructure?: string;
+  structure?: string;
+  invoiceNumber?: string;
+  supplierName?: string | null;
+};
 
-function normalizeDateToYMD(value: string) {
+function normalizeDate(value: string) {
   const s = String(value ?? "").trim();
-  return s.length >= 10 ? s.slice(0, 10) : s; // supports ISO too
+  return s.length >= 10 ? s.slice(0, 10) : s;
 }
 
-function getYearMonth(dateStr: string) {
-  const d = normalizeDateToYMD(dateStr); // YYYY-MM-DD
-  return { year: d.slice(0, 4), month: d.slice(5, 7) };
+function normalizeAmountToCents(value: number | string) {
+  const n = Number(String(value).replace(",", ".").trim());
+  return Number.isFinite(n) ? Math.round(n * 100) : NaN;
 }
 
-function getExtension(filename: string, fallbackMime?: string) {
-  const parts = (filename || "").split(".");
-  if (parts.length > 1) return parts.pop()!.toLowerCase();
-
-  // fallback from mime type
-  if (fallbackMime === "application/pdf") return "pdf";
-  if (fallbackMime?.startsWith("image/")) return fallbackMime.split("/")[1] || "png";
-  return "bin";
+function normalizeStructure(inv: ExistingInvoiceLike) {
+  // some places use invoiceStructure, others structure
+  return String(inv.invoiceStructure ?? inv.structure ?? "").trim();
 }
 
 export function useInvoiceCreate(opts: {
   suppliers: Supplier[];
   setSuppliers: (s: Supplier[]) => void;
-  onCreated: (created: any) => void; // can be InvoiceRow if you import it
+  onCreated: (created: InvoiceRow) => void;
+  existingInvoices: ExistingInvoiceLike[];
 }) {
-  const { suppliers, setSuppliers, onCreated } = opts;
+  const { suppliers, setSuppliers, onCreated, existingInvoices } = opts;
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -59,6 +56,13 @@ export function useInvoiceCreate(opts: {
   const [structure, setStructure] = useState<InvoiceStructure>("STRUCTURE_1");
   const [files, setFiles] = useState<File[]>([]);
 
+  // duplicate confirmation
+  const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
+  const [duplicateFound, setDuplicateFound] = useState<{
+    number?: string;
+    supplierName?: string;
+  } | null>(null);
+
   function reset() {
     setError("");
     setSaving(false);
@@ -71,8 +75,10 @@ export function useInvoiceCreate(opts: {
     setInvoiceDate("");
     setAmountTTC("");
     setStructure("STRUCTURE_1");
-
     setFiles([]);
+
+    setConfirmDuplicateOpen(false);
+    setDuplicateFound(null);
   }
 
   useEffect(() => {
@@ -92,6 +98,75 @@ export function useInvoiceCreate(opts: {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  const potentialDuplicate = useMemo(() => {
+    const d = normalizeDate(invoiceDate);
+    const cents = normalizeAmountToCents(amountTTC);
+    const s = String(structure).trim();
+
+    if (!d || !Number.isFinite(cents) || cents <= 0 || !s) return null;
+
+    return (
+      (existingInvoices ?? []).find((inv) => {
+        const invD = normalizeDate(inv.invoiceDate);
+        const invC = normalizeAmountToCents(inv.amountTTC);
+        const invS = normalizeStructure(inv);
+        return invD === d && invC === cents && invS === s;
+      }) ?? null
+    );
+  }, [existingInvoices, invoiceDate, amountTTC, structure]);
+
+  useEffect(() => {
+    setConfirmDuplicateOpen(false);
+    setDuplicateFound(null);
+  }, [invoiceDate, amountTTC, structure, supplierMode, supplierId, supplierNewName]);
+
+  async function doCreate() {
+    setSaving(true);
+    setError("");
+
+    try {
+      const ttc = Number(String(amountTTC).replace(",", "."));
+
+      const uploadedDocs: CreateInvoiceInput["documents"] = [];
+
+      for (const f of files) {
+        const { uploadUrl, key } = await presignUpload(f.name, f.type);
+        await uploadToSignedUrl(uploadUrl, f);
+
+        uploadedDocs.push({
+          url: key,
+          type: f.type === "application/pdf" ? "PDF" : "IMAGE",
+        });
+      }
+
+      const payload: CreateInvoiceInput = {
+        invoiceDate: normalizeDate(invoiceDate),
+        amountTTC: ttc,
+        structure: String(structure),
+        documents: uploadedDocs,
+        ...(supplierMode === "existing"
+          ? { supplierId }
+          : { supplierName: supplierNewName.trim() }),
+      };
+
+      const created = await createInvoice(payload);
+      onCreated(created);
+
+      // refresh suppliers list (optional)
+      try {
+        const sup = await getSuppliers();
+        setSuppliers(sup.items);
+      } catch {}
+
+      setOpen(false);
+      reset();
+    } catch (e: any) {
+      setError(e?.message ?? "Erreur création");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function submit() {
     setError("");
@@ -121,73 +196,26 @@ export function useInvoiceCreate(opts: {
       return;
     }
 
-    // IMPORTANT: with the requested naming scheme, best to allow only 1 file
-    // because key ends with FACTURE_XXX.ext. Multiple files would collide.
-    if (files.length > 1) {
-      setError("Un seul document est autorisé (sinon le nom de fichier entrerait en conflit).");
+    if (potentialDuplicate) {
+      setDuplicateFound({
+        number: potentialDuplicate.invoiceNumber,
+        supplierName: potentialDuplicate.supplierName ?? undefined, // null -> undefined
+      });
+      setConfirmDuplicateOpen(true);
       return;
     }
 
-    setSaving(true);
-    try {
-      const uploadedDocs: CreateInvoiceInput["documents"] = [];
+    await doCreate();
+  }
 
-      const supplierName =
-        supplierMode === "existing"
-          ? suppliers.find((s) => s.id === supplierId)?.name || "UNKNOWN_SUPPLIER"
-          : supplierNewName.trim();
+  async function confirmDuplicateAndSubmit() {
+    setConfirmDuplicateOpen(false);
+    await doCreate();
+  }
 
-      const { year, month } = getYearMonth(invoiceDate);
-
-      const structureFolder = slugify(String(structure));
-      const supplierFolder = slugify(supplierName);
-
-      const invoiceName = `FACTURE_${slugify(nextNumber || "INVOICE")}`;
-      const ext = getExtension(files[0].name, files[0].type);
-
-      const key = `${structureFolder}/${year}/${month}/${supplierFolder}/${invoiceName}.${ext}`;
-
-      // ✅ NEW: ask backend to presign for this key
-      const { uploadUrl, key: returnedKey } = await presignUpload({
-        key,
-        mimeType: files[0].type,
-        filename: `${invoiceName}.${ext}`, // optional
-      });
-
-      // use returnedKey in case backend changes/normalizes it
-      await uploadToSignedUrl(uploadUrl, files[0]);
-
-      uploadedDocs.push({
-        url: returnedKey,
-        type: files[0].type === "application/pdf" ? "PDF" : "IMAGE",
-      });
-
-      const payload: CreateInvoiceInput = {
-        invoiceDate: normalizeDateToYMD(invoiceDate),
-        amountTTC: ttc,
-        structure,
-        documents: uploadedDocs,
-        ...(supplierMode === "existing"
-          ? { supplierId }
-          : { supplierName: supplierNewName.trim() }),
-      };
-
-      const created = await createInvoice(payload);
-      onCreated(created);
-
-      // refresh suppliers list (optional)
-      try {
-        const sup = await getSuppliers();
-        setSuppliers(sup.items);
-      } catch {}
-
-      setOpen(false);
-      reset();
-    } catch (e: any) {
-      setError(e?.message ?? "Erreur création");
-    } finally {
-      setSaving(false);
-    }
+  function cancelDuplicate() {
+    setConfirmDuplicateOpen(false);
+    setDuplicateFound(null);
   }
 
   return {
@@ -214,6 +242,11 @@ export function useInvoiceCreate(opts: {
 
     files,
     setFiles,
+
+    confirmDuplicateOpen,
+    duplicateFound,
+    confirmDuplicateAndSubmit,
+    cancelDuplicate,
 
     reset,
     submit,

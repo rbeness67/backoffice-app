@@ -57,7 +57,7 @@ export function InvoicesTable(props: {
                     <TableCell className="text-right">
                       {Number(r.amountTTC).toFixed(2)} €
                     </TableCell>
-                    <TableCell>{r.structure ?? "—"}</TableCell>
+                    <TableCell>{r.invoiceStructure ?? "—"}</TableCell>
                     <TableCell className="text-right">{r.documentsCount}</TableCell>
 
                     <TableCell className="text-right">

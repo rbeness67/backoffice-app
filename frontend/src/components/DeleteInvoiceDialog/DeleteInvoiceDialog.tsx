@@ -1,51 +1,55 @@
-import { deleteInvoice, type InvoiceRow } from "@/api/invoices";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-type Props = {
+type HookShape = {
   open: boolean;
-  onOpenChange: (v: boolean) => void;
-  invoice: InvoiceRow | null;
-  onDeleted: (id: string) => void;
+  setOpen: (v: boolean) => void;
+  toDelete: { id: string; invoiceNumber?: string; supplierName?: string | null } | null;
+  deleting: boolean;
+  confirm: () => void;
 };
 
-export function DeleteInvoiceDialog({
-  open,
-  onOpenChange,
-  invoice,
-  onDeleted,
-}: Props) {
-  async function onConfirm() {
-    if (!invoice) return;
-    await deleteInvoice(invoice.id);
-    onDeleted(invoice.id);
-    onOpenChange(false);
-  }
+export function DeleteInvoiceDialog({ hook }: { hook: HookShape }) {
+  const h = hook;
+
+  const label =
+    h.toDelete?.invoiceNumber
+      ? `la facture ${h.toDelete.invoiceNumber}`
+      : "cette facture";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Supprimer la facture ?</DialogTitle>
-        </DialogHeader>
+    <AlertDialog open={h.open} onOpenChange={h.setOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Supprimer une facture</AlertDialogTitle>
+          <AlertDialogDescription>
+            Tu es sur le point de supprimer {label}
+            {h.toDelete?.supplierName ? ` (${h.toDelete.supplierName})` : ""}. Cette
+            action est irréversible.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
-        <p className="text-sm text-muted-foreground">
-          Cette action est irréversible.
-        </p>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
-          </Button>
-          <Button onClick={onConfirm}>Supprimer</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={h.deleting}>Annuler</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              h.confirm();
+            }}
+            disabled={h.deleting || !h.toDelete}
+          >
+            {h.deleting ? "Suppression…" : "Supprimer"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
