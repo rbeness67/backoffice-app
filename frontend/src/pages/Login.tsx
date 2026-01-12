@@ -1,21 +1,21 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
 import { login } from "@/api/auth";
+import { getToken } from "@/utils/authtoken";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Navigate } from "react-router-dom";
 
 export default function Login() {
+  const token = getToken();
+  if (token) return <Navigate to="/invoices" replace />;
 
-    const token = localStorage.getItem("token");
-    if (token) return <Navigate to="/" replace />;
+  const navigate = useNavigate();
 
-    const navigate = useNavigate();
-    const [email, setEmail] = useState("rayane@test.com");
-    const [password, setPassword] = useState("Rayane2406!");
+  const [email, setEmail] = useState("rayane@test.com");
+  const [password, setPassword] = useState("Rayane2406!");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,9 +26,8 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { token } = await login(email, password);
-      localStorage.setItem("token", token);
-      navigate("/");
+      await login(email.trim(), password);
+      navigate("/invoices", { replace: true });
     } catch {
       setError("Email ou mot de passe incorrect");
     } finally {
@@ -42,6 +41,7 @@ export default function Login() {
         <CardHeader>
           <CardTitle>Connexion</CardTitle>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">

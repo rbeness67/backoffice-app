@@ -1,3 +1,5 @@
+import { setToken } from "@/utils/authtoken";
+
 export async function login(email: string, password: string) {
   const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
     method: "POST",
@@ -6,11 +8,16 @@ export async function login(email: string, password: string) {
   });
 
   if (!res.ok) {
-  const txt = await res.text();
-  console.error("LOGIN ERROR", res.status, txt);
-  throw new Error("Invalid credentials");
+    const txt = await res.text();
+    console.error("LOGIN ERROR", res.status, txt);
+    throw new Error("Invalid credentials");
+  }
+
+  const data = (await res.json()) as { token: string };
+  setToken(data.token);
+  return data;
 }
 
-
-  return res.json() as Promise<{ token: string }>;
+export function logout() {
+  localStorage.removeItem("token");
 }

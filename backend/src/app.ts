@@ -31,6 +31,7 @@ app.use(
 
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // ✅ utile
 app.use("/auth", authRoutes);
 app.use("/invoices", invoicesRoutes);
 app.use("/suppliers", suppliersRoutes);

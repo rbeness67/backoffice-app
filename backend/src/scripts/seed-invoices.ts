@@ -40,11 +40,7 @@ async function main() {
         invoiceNumber: `FAC-2026-${String(i).padStart(3, "0")}`, // unique
         supplierId: supplier.id,
         invoiceDate: new Date(2026, 0, i),
-        dueDate: new Date(2026, 0, i + 30),
-        amountHT,
-        amountTVA,
         amountTTC,
-        status,
       },
     });
 
