@@ -6,32 +6,15 @@ export async function login(email: string, password: string) {
   const normalizedEmail = String(email ?? "").trim().toLowerCase();
   const normalizedPassword = String(password ?? "").trim();
 
-  if (!normalizedEmail || !normalizedPassword) {
-    throw new Error("Invalid credentials");
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-  });
-
-  if (!user) {
-    throw new Error("Invalid credentials");
-  }
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (!user) throw new Error("Invalid email");
 
   const isValid = await bcrypt.compare(normalizedPassword, user.password);
-  if (!isValid) {
-    throw new Error("Invalid credentials");
-  }
+  if (!isValid) throw new Error("Invalid password");
 
   const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    // This would be a server misconfig; better than signing with undefined.
-    throw new Error("Server misconfigured");
-  }
+  if (!secret) throw new Error("JWT_SECRET missing");
 
-  const token = jwt.sign({ userId: user.id, role: user.role }, secret, {
-    expiresIn: "7d",
-  });
-
+  const token = jwt.sign({ userId: user.id, role: user.role }, secret, { expiresIn: "7d" });
   return { token };
 }
