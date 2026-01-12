@@ -8,7 +8,28 @@ import documentsRoutes from "./modules/documents/documents.routes";
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:5173" }));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://backoffice-app-flame.vercel.app",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // autorise Postman / curl
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
+
+
 app.use(express.json());
 app.use("/auth", authRoutes);
 app.use("/invoices", invoicesRoutes);
