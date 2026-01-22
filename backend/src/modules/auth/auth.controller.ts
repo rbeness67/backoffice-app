@@ -3,12 +3,19 @@ import { login } from "./auth.service";
 
 export async function loginController(req: Request, res: Response) {
   try {
-    const email = String(req.body?.email ?? "");
+    const email = String(req.body?.email ?? "").trim().toLowerCase();
     const password = String(req.body?.password ?? "");
+
+    // 🔍 DEBUG (safe)
+    console.log("[LOGIN] email:", email);
+    console.log("[LOGIN] password length:", password.length);
+
     const result = await login(email, password);
     return res.json(result);
   } catch (e: any) {
     const msg = String(e?.message ?? "");
+
+    console.error("[LOGIN ERROR]", msg);
 
     // erreurs serveur (ex: JWT_SECRET manquant)
     if (msg.includes("JWT_SECRET")) {
