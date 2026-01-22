@@ -1,28 +1,24 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Login from "@/pages/Login";
-import Home from "@/pages/Home";
-import Invoices from "@/pages/Invoices";
-import AppLayout from "@/layouts/AppLayout";
+
 import ProtectedRoute from "@/auth/ProtectedRoute";
+import Login from "@/pages/Login";
+import InvoicesPage from "@/pages/Invoices";
 
 export default function Router() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public */}
         <Route path="/login" element={<Login />} />
 
-        <Route
-          element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/" element={<Home />} />
-          <Route path="/invoices" element={<Invoices />} />
+        {/* Protected */}
+        <Route element={<ProtectedRoute />}>
+          <Route index element={<Navigate to="/invoices" replace />} />
+          <Route path="invoices" element={<InvoicesPage />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/invoices" replace />} />
       </Routes>
     </BrowserRouter>
   );

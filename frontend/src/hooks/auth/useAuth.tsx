@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { loginApi } from "@/api/auth";
-import { clearToken, getValidToken, setToken } from "@/utils/authToken";
+import { clearToken, getValidToken, setToken } from "../../utils/authtoken";
 
 type AuthContextValue = {
   token: string | null;
