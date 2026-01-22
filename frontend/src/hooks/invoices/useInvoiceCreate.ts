@@ -121,17 +121,49 @@ export function useInvoiceCreate(opts: {
     setDuplicateFound(null);
   }, [invoiceDate, amountTTC, structure, supplierMode, supplierId, supplierNewName]);
 
+  function resolveSupplierName() {
+    if (supplierMode === "new") return supplierNewName.trim();
+    const found = suppliers.find((s) => s.id === supplierId);
+    return found?.name ?? "";
+  }
+
   async function doCreate() {
     setSaving(true);
     setError("");
 
     try {
+      const normalizedInvoiceDate = normalizeDate(invoiceDate);
       const ttc = Number(String(amountTTC).replace(",", "."));
+
+      const supplierNameForKey = resolveSupplierName();
+      if (!supplierNameForKey) {
+        throw new Error("Impossible de déterminer le fournisseur.");
+      }
+
+      // invoice number used for S3 filename
+      const invoiceNumberForKey = String(nextNumber ?? "").trim();
+      if (!invoiceNumberForKey) {
+        throw new Error("Numéro de facture indisponible.");
+      }
 
       const uploadedDocs: CreateInvoiceInput["documents"] = [];
 
-      for (const f of files) {
-        const { uploadUrl, key } = await presignUpload(f.name, f.type);
+      // Build keys like:
+      // invoices/2026/01/ACME/FACTURE_JEL-26-001.pdf
+      // invoices/2026/01/ACME/FACTURE_JEL-26-001_2.pdf ...
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const fileIndex = i + 1;
+
+        const { uploadUrl, key } = await presignUpload({
+          filename: f.name,
+          mimeType: f.type,
+          invoiceDate: normalizedInvoiceDate,
+          supplierName: supplierNameForKey,
+          invoiceNumber: invoiceNumberForKey,
+          fileIndex,
+        });
+
         await uploadToSignedUrl(uploadUrl, f);
 
         uploadedDocs.push({
@@ -141,7 +173,7 @@ export function useInvoiceCreate(opts: {
       }
 
       const payload: CreateInvoiceInput = {
-        invoiceDate: normalizeDate(invoiceDate),
+        invoiceDate: normalizedInvoiceDate,
         amountTTC: ttc,
         structure: String(structure),
         documents: uploadedDocs,

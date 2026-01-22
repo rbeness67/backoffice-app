@@ -9,16 +9,47 @@ function extFromName(name: string) {
   return i >= 0 ? name.slice(i) : "";
 }
 
+// keep path safe (no slashes, weird chars)
+function sanitizePathSegment(input: string) {
+  return String(input ?? "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^\w\-().]/g, "") // keep letters/numbers/_-().
+    .slice(0, 80) || "UNKNOWN";
+}
+
+function parseYearMonth(invoiceDate: string) {
+  // expects YYYY-MM-DD (or ISO). We'll take first 10 chars.
+  const d = String(invoiceDate ?? "").slice(0, 10);
+  const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return { year: m[1], month: m[2] };
+}
+
 export async function presignUpload(req: Request, res: Response) {
-  const { filename, mimeType } = req.body ?? {};
+  const { filename, mimeType, invoiceDate, supplierName } = req.body ?? {};
 
   if (!filename || !mimeType) {
     return res.status(400).json({ message: "filename and mimeType required" });
   }
 
-  const id = crypto.randomUUID();
+  // We need these to build invoices/YEAR/MONTH/FOURNISSEUR/...
+  if (!invoiceDate || !supplierName) {
+    return res.status(400).json({
+      message: "invoiceDate and supplierName required to build S3 key",
+    });
+  }
+
+  const ym = parseYearMonth(String(invoiceDate));
+  if (!ym) {
+    return res.status(400).json({ message: "invoiceDate must be YYYY-MM-DD" });
+  }
+
   const ext = extFromName(String(filename));
-  const key = `invoices/uploads/${id}${ext}`; // clé cloud
+  const id = crypto.randomUUID();
+
+  const supplierSeg = sanitizePathSegment(String(supplierName));
+  const key = `invoices/${ym.year}/${ym.month}/${supplierSeg}/${id}${ext}`;
 
   const cmd = new PutObjectCommand({
     Bucket: process.env.S3_BUCKET!,
@@ -26,7 +57,6 @@ export async function presignUpload(req: Request, res: Response) {
     ContentType: String(mimeType),
   });
 
-  // URL temporaire (ex: 2 minutes)
   const uploadUrl = await getSignedUrl(s3, cmd, { expiresIn: 120 });
 
   return res.json({ uploadUrl, key });
