@@ -1,67 +1,59 @@
 .sheet {
-  width: 100%;
-  padding-left: 20px;
-  padding-right: 20px;
+  /* mobile: take full width */
+  width: 100vw;
+  max-width: 100vw;
+
+  /* make the sheet a column layout so we can stick footer */
+  display: flex;
+  flex-direction: column;
+
+  /* handle tall forms on mobile */
+  height: 100dvh;
+  padding: 16px;
 }
 
+/* desktop/tablet: constrain width */
 @media (min-width: 640px) {
   .sheet {
-    max-width: 36rem;
-    padding-left: 28px;
-    padding-right: 28px;
+    width: 520px;
+    max-width: 520px;
+    height: 100vh;
+    padding: 20px;
   }
 }
 
 .header {
-  padding-bottom: 6px;
+  /* sticky-ish header feel without fighting Sheet internals */
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
+/* NEW: the scroll container */
+.scroll {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* body spacing on mobile */
 .body {
-  margin-top: 18px;
-  padding-bottom: 28px;
-  display: grid;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .section {
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 14px;
-  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .block {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  margin-top: 12px;
-}
-
-.block:first-child {
-  margin-top: 0;
-}
-
-.control {
-  width: 100%;
-}
-
-.readonly {
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 13px;
-  background: rgba(0, 0, 0, 0.03);
-}
-
-.hint {
-  font-size: 12px;
-  opacity: 0.78;
-  line-height: 1.35;
-}
-
-.hintMuted {
-  font-size: 12px;
-  opacity: 0.6;
-  line-height: 1.35;
 }
 
 .rowBetween {
@@ -69,53 +61,73 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap; /* important for small screens */
 }
 
 .linkBtn {
-  font-size: 12px;
-  opacity: 0.78;
+  background: transparent;
+  border: 0;
+  padding: 8px 0; /* larger tap target on mobile */
   text-decoration: underline;
-  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.control {
+  width: 100%;
+  min-height: 44px; /* better touch target */
+}
+
+.readonly {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 .filesMeta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+  margin-top: 4px;
 }
 
-.totals {
-  border: 1px solid rgba(0, 0, 0, 0.10);
-  border-radius: 12px;
-  padding: 12px;
-  font-size: 13px;
-  background: rgba(255, 255, 255, 0.6);
+/* NEW: sticky footer */
+.footer {
+  position: sticky;
+  bottom: 0;
+  padding-top: 12px;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--background, #fff);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-.totalRowStrong {
-  display: flex;
-  justify-content: space-between;
-  font-weight: 650;
-}
-
-.fieldError {
-  font-size: 12px;
-  color: #b00020;
-  opacity: 0.95;
-}
-
-.error {
-  border-radius: 12px;
-  padding: 12px;
-  font-size: 13px;
-  background: rgba(255, 0, 0, 0.06);
-  border: 1px solid rgba(255, 0, 0, 0.15);
-  color: #b00020;
-}
-
+/* actions: stacked on mobile, inline on larger screens */
 .actions {
   display: flex;
   gap: 10px;
-  padding-top: 2px;
+  flex-direction: column;
 }
+
+.primaryBtn,
+.secondaryBtn {
+  width: 100%;
+  min-height: 44px;
+}
+
+@media (min-width: 640px) {
+  .actions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .primaryBtn {
+    width: auto;
+    flex: 1;
+  }
+
+  .secondaryBtn {
+    width: auto;
+  }
+}
+
+/* keep your existing hint/error/totals styles if you already have them */

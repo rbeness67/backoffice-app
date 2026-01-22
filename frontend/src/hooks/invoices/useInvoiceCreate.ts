@@ -134,7 +134,7 @@ export function useInvoiceCreate(opts: {
     try {
       const normalizedInvoiceDate = normalizeDate(invoiceDate);
       const ttc = Number(String(amountTTC).replace(",", "."));
-
+      const normalizedStructure = structure;
       const supplierNameForKey = resolveSupplierName();
       if (!supplierNameForKey) {
         throw new Error("Impossible de déterminer le fournisseur.");
@@ -156,6 +156,7 @@ export function useInvoiceCreate(opts: {
         const fileIndex = i + 1;
 
         const { uploadUrl, key } = await presignUpload({
+          structure:normalizedStructure,
           filename: f.name,
           mimeType: f.type,
           invoiceDate: normalizedInvoiceDate,

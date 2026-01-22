@@ -1,6 +1,7 @@
 import { apiFetch } from "@/api/http";
 
 export async function presignUpload(args: {
+  structure: string;
   filename: string;
   mimeType: string;
   invoiceDate: string;      // YYYY-MM-DD
