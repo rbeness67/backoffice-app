@@ -1,39 +1,39 @@
-import React, { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
-import { login } from "@/api/auth";
-import { getToken } from "@/utils/authtoken";
-
+import React, { useEffect, useState } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/hooks/auth/useAuth";
 
 export default function Login() {
-  const token = getToken();
-  if (token) return <Navigate to="/invoices" replace />;
-
+  const { isAuthed, login, loginLoading, loginError } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation() as any;
 
   const [email, setEmail] = useState("rayane@test.com");
   const [password, setPassword] = useState("Rayane2406!");
+  const [localError, setLocalError] = useState("");
 
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  useEffect(() => setLocalError(""), [email, password]);
+
+  // ✅ only happens when token is valid
+  if (isAuthed) return <Navigate to="/invoices" replace />;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    setLocalError("");
 
     try {
-      await login(email.trim(), password);
-      navigate("/invoices", { replace: true });
+      await login(email, password);
+      const to = location?.state?.from || "/invoices";
+      navigate(to, { replace: true });
     } catch {
-      setError("Email ou mot de passe incorrect");
-    } finally {
-      setLoading(false);
+      setLocalError("Email ou mot de passe incorrect");
     }
   }
+
+  const errorToShow = localError || loginError;
 
   return (
     <div className="flex min-h-svh items-center justify-center bg-muted p-4">
@@ -41,7 +41,6 @@ export default function Login() {
         <CardHeader>
           <CardTitle>Connexion</CardTitle>
         </CardHeader>
-
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -68,10 +67,10 @@ export default function Login() {
               />
             </div>
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {errorToShow && <p className="text-sm text-red-500">{errorToShow}</p>}
 
-            <Button className="w-full" type="submit" disabled={loading}>
-              {loading ? "Connexion..." : "Se connecter"}
+            <Button className="w-full" type="submit" disabled={loginLoading}>
+              {loginLoading ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
         </CardContent>
