@@ -8,7 +8,7 @@ const linkActive = "bg-muted font-medium";
 
 export default function Sidebar() {
   return (
-    <aside className="flex h-full w-64 flex-col border-r bg-background">
+    <aside className="flex min-h-svh w-64 flex-col border-r bg-background">
       <div className="px-4 py-4">
         <div className="text-lg font-semibold">Back-office</div>
         <div className="text-xs text-muted-foreground">v0</div>
