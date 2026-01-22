@@ -134,7 +134,7 @@ export function useInvoiceCreate(opts: {
     try {
       const normalizedInvoiceDate = normalizeDate(invoiceDate);
       const ttc = Number(String(amountTTC).replace(",", "."));
-      const normalizedStructure = structure;
+
       const supplierNameForKey = resolveSupplierName();
       if (!supplierNameForKey) {
         throw new Error("Impossible de déterminer le fournisseur.");
@@ -148,20 +148,20 @@ export function useInvoiceCreate(opts: {
 
       const uploadedDocs: CreateInvoiceInput["documents"] = [];
 
-      // Build keys like:
-      // invoices/2026/01/ACME/FACTURE_JEL-26-001.pdf
-      // invoices/2026/01/ACME/FACTURE_JEL-26-001_2.pdf ...
+      // Desired key format:
+      // invoices/<STRUCTURE>/<YEAR>/<MONTH>/<SUPPLIER>/FACTURE_<INVOICE_NUMBER>.pdf
+      // If multiple files: ..._2.pdf, ..._3.pdf
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
         const fileIndex = i + 1;
 
         const { uploadUrl, key } = await presignUpload({
-          structure:normalizedStructure,
           filename: f.name,
           mimeType: f.type,
           invoiceDate: normalizedInvoiceDate,
           supplierName: supplierNameForKey,
           invoiceNumber: invoiceNumberForKey,
+          structure: String(structure),
           fileIndex,
         });
 
