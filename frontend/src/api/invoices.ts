@@ -8,7 +8,7 @@ export type InvoiceRow = {
   supplierName: string | null;
   invoiceDate: string; // YYYY-MM-DD (ou ISO selon backend)
   amountTTC: number;
-  invoiceStructure: string;
+  structure: string;
   documentsCount: number;
   documents?: InvoiceDocRef[];
   createdAt: string;

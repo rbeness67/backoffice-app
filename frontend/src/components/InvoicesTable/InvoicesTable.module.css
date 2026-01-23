@@ -1,24 +1,141 @@
+/* ───────────────────────────── */
+/* Card & layout                 */
+/* ───────────────────────────── */
+
 .card {
   overflow: hidden;
+  border-radius: 14px;
+  background: hsl(var(--background));
 }
 
 .inner {
-  padding: 16px;
-}
-
-.loading {
-  font-size: 13px;
-  opacity: 0.75;
-}
-
-.tableWrap {
-  border: 1px solid rgba(0,0,0,0.12);
-  border-radius: 8px;
-  overflow: hidden;
+  padding: 14px;
 }
 
 @media (min-width: 640px) {
   .inner {
-    padding: 20px;
+    padding: 14px;
   }
+}
+
+/* ───────────────────────────── */
+/* Loading                       */
+/* ───────────────────────────── */
+
+.loading {
+  font-size: 15px; /* was 14 */
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+  padding: 36px 0;
+}
+
+/* ───────────────────────────── */
+/* Table container               */
+/* ───────────────────────────── */
+
+.tableWrap {
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  overflow: hidden;
+  background: hsl(var(--background));
+}
+
+/* ───────────────────────────── */
+/* Table header                  */
+/* ───────────────────────────── */
+
+.tableWrap :global(thead th) {
+  font-size: 13px; /* was 12 */
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background));
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* ───────────────────────────── */
+/* Table cells                   */
+/* ───────────────────────────── */
+
+.tableWrap :global(td) {
+  font-size: 15px; /* was 14 */
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  padding-top: 13px;
+  padding-bottom: 13px;
+  vertical-align: middle;
+}
+
+/* Invoice number = strongest visual anchor */
+.tableWrap :global(td.font-semibold) {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+/* Numeric alignment */
+.tableWrap :global(td.text-right),
+.tableWrap :global(th.text-right) {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Muted informational cells (date, structure, docs) */
+.tableWrap :global(.text-muted-foreground) {
+  font-size: 14px; /* was 13 */
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Amount column pops slightly more */
+.tableWrap :global(td.font-medium) {
+  font-weight: 600;
+}
+
+/* ───────────────────────────── */
+/* Hover / interaction           */
+/* ───────────────────────────── */
+
+.tableWrap :global(tbody tr.group) {
+  transition: background-color 0.15s ease;
+}
+
+.tableWrap :global(tbody tr.group:hover) {
+  background-color: hsl(var(--muted) / 0.35);
+}
+
+/* ───────────────────────────── */
+/* Month grouping (card header)  */
+/* ───────────────────────────── */
+
+/* Month title (still smaller than rows) */
+.month-title {
+  font-size: 20px; /* was 13 */
+  font-weight: 900;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Month badge (count) */
+.month-badge {
+  font-size: 12px; /* was 11 */
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border));
+  background: transparent;
+}
+
+/* ───────────────────────────── */
+/* Dropdown / actions            */
+/* ───────────────────────────── */
+
+.tableWrap :global(button) {
+  font-weight: 500;
+}
+
+/* Make destructive action clearer */
+.tableWrap :global(.text-red-600) {
+  font-weight: 600;
 }

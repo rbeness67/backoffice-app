@@ -1,4 +1,6 @@
 import styles from "./Invoices.module.css";
+import { useEffect, useMemo, useState } from "react";
+
 import { useInvoicesData } from "@/hooks/invoices/useInvoicesData";
 import { useInvoiceCreate } from "@/hooks/invoices/useInvoiceCreate";
 import { useInvoiceEdit } from "@/hooks/invoices/useInvoiceEdit";
@@ -11,49 +13,202 @@ import { CreateInvoiceSheet } from "@/components/CreateInvoiceSheet/CreateInvoic
 import { DeleteInvoiceDialog } from "@/components/DeleteInvoiceDialog/DeleteInvoiceDialog";
 import { EditInvoiceSheet } from "@/components/EditInvoiceSheet/EditInvoiceSheet";
 
+// shadcn tabs + badge
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+
+// ✅ shadcn Sonner toaster (render once somewhere in your app)
+import { Toaster } from "@/components/ui/sonner";
+// ✅ sonner API
+import { toast } from "sonner";
+
+// single source of truth for names
+import { getStructureLabel } from "@/utils/stuctureLabel";
+
+type StructureTab = "all" | string;
+
+function toDateSafe(value: any): Date | null {
+  if (!value) return null;
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function monthKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabelFR(d: Date) {
+  const label = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export default function InvoicesPage() {
   const data = useInvoicesData();
-
   const onDownload = useInvoiceDownload(data.setError);
+
+  const [tab, setTab] = useState<StructureTab>("all");
+
+  // ✅ Normalize items so UI always has the fields it needs
+  const normalizedItems = useMemo(() => {
+    return (data.items ?? []).map((i: any) => {
+      const structure = i.structure ?? i.invoiceStructure ?? i.invoice_structure ?? "";
+      const supplierName = i.supplierName ?? i.supplier?.name ?? i.supplier_name ?? null;
+      const invoiceNumber = i.invoiceNumber ?? i.number ?? i.invoice_number ?? "";
+
+      return {
+        ...i,
+        structure, // raw code/value used by backend
+        structureLabel: getStructureLabel(structure), // what user sees
+        supplierName,
+        invoiceNumber,
+      };
+    });
+  }, [data.items]);
+
+  // ✅ Structure labels (tabs) derived from actual data (no Structure_1/2 anywhere)
+  const structureLabels = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of normalizedItems) {
+      const label = String(it.structureLabel ?? "").trim();
+      if (label) set.add(label);
+    }
+    return Array.from(set);
+  }, [normalizedItems]);
+
+  const counts = useMemo(() => {
+    const map: Record<string, number> = { all: normalizedItems.length };
+    for (const label of structureLabels) map[label] = 0;
+
+    for (const it of normalizedItems) {
+      const label = String(it.structureLabel ?? "").trim();
+      if (label && map[label] !== undefined) map[label] += 1;
+    }
+    return map;
+  }, [normalizedItems, structureLabels]);
+
+  const filteredItems = useMemo(() => {
+    if (tab === "all") return normalizedItems;
+    return normalizedItems.filter((it: any) => it.structureLabel === tab);
+  }, [normalizedItems, tab]);
+
+  // ✅ Group the currently displayed items by Month (for the table mini-headers)
+  const monthGroups = useMemo(() => {
+    const sorted = [...filteredItems].sort((a: any, b: any) => {
+      const da = toDateSafe(a.invoiceDate);
+      const db = toDateSafe(b.invoiceDate);
+      const ta = da ? da.getTime() : -Infinity;
+      const tb = db ? db.getTime() : -Infinity;
+      return tb - ta;
+    });
+
+    const map = new Map<string, { key: string; title: string; monthDate: Date | null; items: any[] }>();
+
+    for (const inv of sorted) {
+      const d = toDateSafe(inv.invoiceDate);
+
+      if (!d) {
+        const k = "no-date";
+        if (!map.has(k)) map.set(k, { key: k, title: "Sans date", monthDate: null, items: [] });
+        map.get(k)!.items.push(inv);
+        continue;
+      }
+
+      const k = monthKey(d);
+      if (!map.has(k)) {
+        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+        map.set(k, { key: k, title: monthLabelFR(monthStart), monthDate: monthStart, items: [] });
+      }
+      map.get(k)!.items.push(inv);
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.key === "no-date") return 1;
+      if (b.key === "no-date") return -1;
+      return (b.monthDate?.getTime() ?? 0) - (a.monthDate?.getTime() ?? 0);
+    });
+  }, [filteredItems]);
 
   const create = useInvoiceCreate({
     suppliers: data.suppliers,
     setSuppliers: data.setSuppliers,
-    existingInvoices: (data.items ?? []).map((i: any) => ({
+    existingInvoices: normalizedItems.map((i: any) => ({
       invoiceDate: i.invoiceDate,
       amountTTC: i.amountTTC,
       structure: i.structure,
-      number: i.number,
-      supplierName: i.supplier?.name,
+      invoiceNumber: i.invoiceNumber,
+      supplierName: i.supplierName,
     })),
-    onCreated: (created) => data.setItems((prev) => [created, ...prev]),
+    onCreated: (created) => {
+      data.setItems((prev: any[]) => [created, ...prev]);
+
+      toast.success("Facture créée", {
+        description: `${created.invoiceNumber ?? "Facture"} ajoutée avec succès.`,
+      });
+    },
   });
 
   const edit = useInvoiceEdit({
     suppliers: data.suppliers,
     setSuppliers: data.setSuppliers,
     onUpdated: (updated) =>
-      data.setItems((prev) => prev.map((x: any) => (x.id === updated.id ? updated : x))),
+      data.setItems((prev: any[]) => prev.map((x: any) => (x.id === updated.id ? updated : x))),
   });
 
   const del = useInvoiceDelete({
-    onDeleted: (id) => data.setItems((prev) => prev.filter((x: any) => x.id !== id)),
+    onDeleted: (id) => data.setItems((prev: any[]) => prev.filter((x: any) => x.id !== id)),
     setGlobalError: data.setError,
   });
+
+  // ✅ Toast on global errors (fetch / delete / download / etc.)
+  useEffect(() => {
+    if (!data.error) return;
+    toast.error("Erreur", {
+      description: data.error,
+    });
+  }, [data.error]);
+
+  // ✅ Toast on create errors too
+  useEffect(() => {
+    if (!create.error) return;
+    toast.error("Erreur création", {
+      description: create.error,
+    });
+  }, [create.error]);
 
   return (
     <div className={styles.page}>
       <InvoicesHeader onCreateClick={() => create.setOpen(true)} />
 
+      {/* optional inline error (toast already shows it) */}
       {data.error && <div className={styles.globalError}>{data.error}</div>}
 
-      <InvoicesTable
-        loading={data.loading}
-        items={data.items}
-        onDownload={onDownload}
-        onEdit={edit.openEdit}
-        onDelete={del.ask}
-      />
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <TabsList>
+          <TabsTrigger value="all" className="gap-2">
+            Toutes les structures
+            <Badge variant="secondary">{counts.all ?? 0}</Badge>
+          </TabsTrigger>
+
+          {structureLabels.map((label) => (
+            <TabsTrigger key={label} value={label} className="gap-2">
+              {label}
+              <Badge variant="secondary">{counts[label] ?? 0}</Badge>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value={tab} className="mt-4">
+          <InvoicesTable
+            loading={data.loading}
+            items={filteredItems}
+            groups={monthGroups}
+            onDownload={onDownload}
+            onEdit={edit.openEdit}
+            onDelete={del.ask}
+          />
+        </TabsContent>
+      </Tabs>
 
       <CreateInvoiceSheet
         open={create.open}
@@ -88,8 +243,11 @@ export default function InvoicesPage() {
       />
 
       <EditInvoiceSheet hook={edit} suppliers={data.suppliers} />
-
       <DeleteInvoiceDialog hook={del} />
+
+      {/* ✅ If you don't already render it globally, keep it here.
+          Best practice: put it once in AppLayout instead. */}
+      <Toaster position="top-right" richColors />
     </div>
   );
 }

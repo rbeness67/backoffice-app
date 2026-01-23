@@ -7,7 +7,7 @@ import {
 } from "@/api/invoices";
 import { getSuppliers, type Supplier } from "@/api/suppliers";
 import { presignUpload, uploadToSignedUrl } from "@/api/uploads";
-import { type InvoiceStructure } from "@/utils/format";
+
 
 type ExistingInvoiceLike = {
   invoiceDate: string;
@@ -53,7 +53,10 @@ export function useInvoiceCreate(opts: {
 
   const [invoiceDate, setInvoiceDate] = useState("");
   const [amountTTC, setAmountTTC] = useState<string>("");
-  const [structure, setStructure] = useState<InvoiceStructure>("STRUCTURE_1");
+
+  // ✅ no more STRUCTURE_1 / STRUCTURE_2 typing or default
+  const [structure, setStructure] = useState<string>("");
+
   const [files, setFiles] = useState<File[]>([]);
 
   // duplicate confirmation
@@ -74,7 +77,10 @@ export function useInvoiceCreate(opts: {
 
     setInvoiceDate("");
     setAmountTTC("");
-    setStructure("STRUCTURE_1");
+
+    // ✅ reset to empty (no hard-coded structure)
+    setStructure("");
+
     setFiles([]);
 
     setConfirmDuplicateOpen(false);
@@ -140,6 +146,12 @@ export function useInvoiceCreate(opts: {
         throw new Error("Impossible de déterminer le fournisseur.");
       }
 
+      // ✅ require structure (no default)
+      const structureForKey = String(structure).trim();
+      if (!structureForKey) {
+        throw new Error("Choisis une structure.");
+      }
+
       // invoice number used for S3 filename
       const invoiceNumberForKey = String(nextNumber ?? "").trim();
       if (!invoiceNumberForKey) {
@@ -148,9 +160,6 @@ export function useInvoiceCreate(opts: {
 
       const uploadedDocs: CreateInvoiceInput["documents"] = [];
 
-      // Desired key format:
-      // invoices/<STRUCTURE>/<YEAR>/<MONTH>/<SUPPLIER>/FACTURE_<INVOICE_NUMBER>.pdf
-      // If multiple files: ..._2.pdf, ..._3.pdf
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
         const fileIndex = i + 1;
@@ -161,7 +170,7 @@ export function useInvoiceCreate(opts: {
           invoiceDate: normalizedInvoiceDate,
           supplierName: supplierNameForKey,
           invoiceNumber: invoiceNumberForKey,
-          structure: String(structure),
+          structure: structureForKey,
           fileIndex,
         });
 
@@ -176,7 +185,7 @@ export function useInvoiceCreate(opts: {
       const payload: CreateInvoiceInput = {
         invoiceDate: normalizedInvoiceDate,
         amountTTC: ttc,
-        structure: String(structure),
+        structure: structureForKey,
         documents: uploadedDocs,
         ...(supplierMode === "existing"
           ? { supplierId }
@@ -209,6 +218,11 @@ export function useInvoiceCreate(opts: {
       return;
     }
 
+    if (!String(structure).trim()) {
+      setError("Choisis une structure.");
+      return;
+    }
+
     if (supplierMode === "existing" && !supplierId) {
       setError("Choisis un fournisseur.");
       return;
@@ -232,7 +246,7 @@ export function useInvoiceCreate(opts: {
     if (potentialDuplicate) {
       setDuplicateFound({
         number: potentialDuplicate.invoiceNumber,
-        supplierName: potentialDuplicate.supplierName ?? undefined, // null -> undefined
+        supplierName: potentialDuplicate.supplierName ?? undefined,
       });
       setConfirmDuplicateOpen(true);
       return;

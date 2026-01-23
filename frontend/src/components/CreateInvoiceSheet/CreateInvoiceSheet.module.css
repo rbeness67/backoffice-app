@@ -1,34 +1,31 @@
 .sheet {
-  /* mobile: take full width */
   width: 100vw;
   max-width: 100vw;
 
-  /* make the sheet a column layout so we can stick footer */
   display: flex;
   flex-direction: column;
 
-  /* handle tall forms on mobile */
   height: 100dvh;
   padding: 16px;
+  gap: 12px;
 }
 
-/* desktop/tablet: constrain width */
+/* desktop/tablet */
 @media (min-width: 640px) {
   .sheet {
-    width: 520px;
-    max-width: 520px;
+    width: 560px;
+    max-width: 560px;
     height: 100vh;
     padding: 20px;
+    gap: 14px;
   }
 }
 
 .header {
-  /* sticky-ish header feel without fighting Sheet internals */
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid hsl(var(--border));
 }
 
-/* NEW: the scroll container */
 .scroll {
   flex: 1;
   overflow: auto;
@@ -37,17 +34,16 @@
   padding-bottom: 12px;
 }
 
-/* body spacing on mobile */
 .body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .block {
@@ -58,50 +54,134 @@
 
 .rowBetween {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap; /* important for small screens */
+  flex-wrap: wrap;
 }
 
 .linkBtn {
   background: transparent;
   border: 0;
-  padding: 8px 0; /* larger tap target on mobile */
+  padding: 6px 0;
   text-decoration: underline;
   cursor: pointer;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}
+
+.linkBtn:hover {
+  color: hsl(var(--foreground));
 }
 
 .control {
   width: 100%;
-  min-height: 44px; /* better touch target */
+  min-height: 44px;
 }
 
+/* readonly number block */
 .readonly {
   width: 100%;
   min-height: 44px;
   display: flex;
   align-items: center;
   padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.25);
+
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
 }
 
 .filesMeta {
   margin-top: 4px;
 }
 
-/* NEW: sticky footer */
+/* hints + muted */
+.hint {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.4;
+}
+
+.hintMuted {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  opacity: 0.85;
+}
+
+/* inline field error (only shown after submit attempt) */
+.fieldError {
+  font-size: 12px;
+  color: hsl(var(--destructive));
+  line-height: 1.4;
+}
+
+/* global error block */
+.error {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--destructive) / 0.35);
+  background: hsl(var(--destructive) / 0.08);
+  color: hsl(var(--destructive));
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ───────────────────────────── */
+/* TOTAL TTC section (bottom)    */
+/* ───────────────────────────── */
+
+.totals {
+  border: 1px solid hsl(var(--border));
+  border-radius: 14px;
+  background: hsl(var(--muted) / 0.18);
+  padding: 12px 12px;
+}
+
+.totalRowStrong {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  font-size: 15px;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+
+.totalRowStrong span:first-child {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+}
+
+.totalRowStrong span:last-child {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* ───────────────────────────── */
+/* Sticky footer                 */
+/* ───────────────────────────── */
+
 .footer {
   position: sticky;
   bottom: 0;
+
   padding-top: 12px;
-  padding-bottom: env(safe-area-inset-bottom);
-  background: var(--background, #fff);
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
+
+  /* “glass” effect without being heavy */
+  background: hsl(var(--background) / 0.96);
+  backdrop-filter: blur(8px);
+
+  border-top: 1px solid hsl(var(--border));
 }
 
-/* actions: stacked on mobile, inline on larger screens */
 .actions {
   display: flex;
   gap: 10px;
@@ -122,12 +202,10 @@
 
   .primaryBtn {
     width: auto;
-    flex: 1;
+    min-width: 140px;
   }
 
   .secondaryBtn {
     width: auto;
   }
 }
-
-/* keep your existing hint/error/totals styles if you already have them */

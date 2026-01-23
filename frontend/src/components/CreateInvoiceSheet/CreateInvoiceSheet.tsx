@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { STRUCTURES } from "../../utils/format";
+import { getStructureLabel } from "@/utils/stuctureLabel";
 import type { Supplier } from "@/api/suppliers";
 import styles from "./CreateInvoiceSheet.module.css";
 
@@ -64,9 +66,41 @@ export function CreateInvoiceSheet(props: {
   cancelDuplicate: () => void;
 
   onCancel: () => void;
-  onSubmit: () => void;
+
+  /**
+   * NOTE: onSubmit may set p.error asynchronously (via hook).
+   * We wrap it to show success dialog when no error occurs.
+   */
+  onSubmit: () => Promise<void> | void;
 }) {
   const p = props;
+
+  // ✅ Only show validation UI after user tries to submit
+  const [submitted, setSubmitted] = useState(false);
+
+  // ✅ Success / Error dialog
+  const [resultOpen, setResultOpen] = useState(false);
+  const [resultKind, setResultKind] = useState<"success" | "error">("success");
+  const [resultMsg, setResultMsg] = useState<string>("");
+
+  // Reset local UI states when opening/closing
+  useEffect(() => {
+    if (!p.open) {
+      setSubmitted(false);
+      setResultOpen(false);
+      setResultMsg("");
+    }
+  }, [p.open]);
+
+  // If the external error prop changes -> show error dialog
+  useEffect(() => {
+    if (!p.open) return;
+    if (!p.error) return;
+
+    setResultKind("error");
+    setResultMsg(p.error);
+    setResultOpen(true);
+  }, [p.error, p.open]);
 
   const supplierOk =
     p.supplierMode === "existing"
@@ -83,15 +117,44 @@ export function CreateInvoiceSheet(props: {
 
   const canSubmit = supplierOk && invoiceDateOk && structureOk && amountOk && filesOk;
 
+  // ✅ apply invalid only after submit attempt
+  const showInvalid = submitted;
+
+  async function handleSubmit() {
+    setSubmitted(true);
+
+    // If client-side invalid -> do not open dialogs, just show inline errors
+    if (!canSubmit) return;
+
+    // Call parent submit
+    await Promise.resolve(p.onSubmit());
+
+    // If duplicate dialog opens, we don't show "success" yet
+    if (p.confirmDuplicateOpen) return;
+
+    // If parent sets error synchronously, effect will show error dialog
+    // If no error, show success dialog
+    if (!p.error) {
+      setResultKind("success");
+      setResultMsg("Facture créée avec succès.");
+      setResultOpen(true);
+    }
+  }
+
   return (
     <>
-      <Sheet open={p.open} onOpenChange={p.setOpen}>
+      <Sheet
+        open={p.open}
+        onOpenChange={(v) => {
+          p.setOpen(v);
+          if (v) setSubmitted(false);
+        }}
+      >
         <SheetContent className={styles.sheet}>
           <SheetHeader className={styles.header}>
             <SheetTitle>Création d&apos;une nouvelle facture</SheetTitle>
           </SheetHeader>
 
-          {/* NEW: scroll area so footer can be sticky */}
           <div className={styles.scroll}>
             <div className={styles.body}>
               <div className={styles.section}>
@@ -125,7 +188,10 @@ export function CreateInvoiceSheet(props: {
 
                   {p.supplierMode === "existing" ? (
                     <Select value={p.supplierId} onValueChange={p.setSupplierId}>
-                      <SelectTrigger className={styles.control} aria-invalid={!supplierOk}>
+                      <SelectTrigger
+                        className={styles.control}
+                        aria-invalid={showInvalid ? !supplierOk : undefined}
+                      >
                         <SelectValue placeholder="Choisir un fournisseur parmi ceux existants" />
                       </SelectTrigger>
                       <SelectContent>
@@ -142,11 +208,11 @@ export function CreateInvoiceSheet(props: {
                       value={p.supplierNewName}
                       onChange={(e) => p.setSupplierNewName(e.target.value)}
                       placeholder="Nom du fournisseur"
-                      aria-invalid={!supplierOk}
+                      aria-invalid={showInvalid ? !supplierOk : undefined}
                     />
                   )}
 
-                  {!supplierOk && <p className={styles.fieldError}>Champ requis.</p>}
+                  {showInvalid && !supplierOk && <p className={styles.fieldError}>Champ requis.</p>}
                 </div>
 
                 <div className={styles.block}>
@@ -157,26 +223,32 @@ export function CreateInvoiceSheet(props: {
                     className={styles.control}
                     value={p.invoiceDate}
                     onChange={(e) => p.setInvoiceDate(e.target.value)}
-                    aria-invalid={!invoiceDateOk}
+                    aria-invalid={showInvalid ? !invoiceDateOk : undefined}
                   />
-                  {!invoiceDateOk && <p className={styles.fieldError}>Champ requis.</p>}
+                  {showInvalid && !invoiceDateOk && <p className={styles.fieldError}>Champ requis.</p>}
                 </div>
 
                 <div className={styles.block}>
-                  <Label>Statut</Label>
+                  <Label>Structure</Label>
+
                   <Select value={p.structure} onValueChange={p.setStructure}>
-                    <SelectTrigger className={styles.control} aria-invalid={!structureOk}>
-                      <SelectValue placeholder="Sélectionner un statut" />
+                    <SelectTrigger
+                      className={styles.control}
+                      aria-invalid={showInvalid ? !structureOk : undefined}
+                    >
+                      <SelectValue placeholder="Sélectionner une structure" />
                     </SelectTrigger>
+
                     <SelectContent>
-                      {STRUCTURES.map((st) => (
-                        <SelectItem key={st} value={st}>
-                          {st}
+                      {STRUCTURES.map((code) => (
+                        <SelectItem key={code} value={code}>
+                          {getStructureLabel(code)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {!structureOk && <p className={styles.fieldError}>Champ requis.</p>}
+
+                  {showInvalid && !structureOk && <p className={styles.fieldError}>Champ requis.</p>}
                 </div>
 
                 <div className={styles.block}>
@@ -188,9 +260,9 @@ export function CreateInvoiceSheet(props: {
                     value={p.amountTTC}
                     onChange={(e) => p.setAmountTTC(e.target.value)}
                     placeholder="120.00"
-                    aria-invalid={!amountOk}
+                    aria-invalid={showInvalid ? !amountOk : undefined}
                   />
-                  {!amountOk && (
+                  {showInvalid && !amountOk && (
                     <p className={styles.fieldError}>
                       Champ requis. Saisis un montant valide (&gt; 0).
                     </p>
@@ -205,7 +277,7 @@ export function CreateInvoiceSheet(props: {
                     accept="application/pdf,image/*"
                     multiple
                     onChange={(e) => p.setFiles(Array.from(e.target.files ?? []))}
-                    aria-invalid={!filesOk}
+                    aria-invalid={showInvalid ? !filesOk : undefined}
                   />
                   <div className={styles.filesMeta}>
                     {p.files.length > 0 ? (
@@ -214,7 +286,7 @@ export function CreateInvoiceSheet(props: {
                       <p className={styles.hintMuted}>Ajoute au moins un document.</p>
                     )}
                   </div>
-                  {!filesOk && <p className={styles.fieldError}>Champ requis.</p>}
+                  {showInvalid && !filesOk && <p className={styles.fieldError}>Champ requis.</p>}
                 </div>
               </div>
 
@@ -227,17 +299,17 @@ export function CreateInvoiceSheet(props: {
                 </div>
               </div>
 
+              {/* Keep inline error if you still want it (optional) */}
               {p.error && <div className={styles.error}>{p.error}</div>}
             </div>
           </div>
 
-          {/* NEW: sticky footer for actions */}
           <div className={styles.footer}>
             <div className={styles.actions}>
               <Button
                 className={styles.primaryBtn}
-                onClick={p.onSubmit}
-                disabled={p.saving || !canSubmit}
+                onClick={handleSubmit}
+                disabled={p.saving}
                 title={!canSubmit ? "Complète tous les champs pour continuer" : undefined}
               >
                 {p.saving ? "Création..." : "Créer"}
@@ -255,6 +327,7 @@ export function CreateInvoiceSheet(props: {
         </SheetContent>
       </Sheet>
 
+      {/* Duplicate confirmation dialog (unchanged) */}
       <AlertDialog
         open={p.confirmDuplicateOpen}
         onOpenChange={(v) => (!v ? p.cancelDuplicate() : null)}
@@ -265,6 +338,12 @@ export function CreateInvoiceSheet(props: {
             <AlertDialogDescription>
               Une facture existe déjà avec la même <b>date</b>, le même <b>montant</b> et la même{" "}
               <b>structure</b>.
+              <br />
+              {structureOk ? (
+                <span>
+                  Structure sélectionnée : <b>{getStructureLabel(p.structure)}</b>.
+                </span>
+              ) : null}
               <br />
               {p.duplicateFound ? (
                 <span>
@@ -283,6 +362,32 @@ export function CreateInvoiceSheet(props: {
             </AlertDialogCancel>
             <AlertDialogAction disabled={p.saving} onClick={p.confirmDuplicateAndSubmit}>
               Créer quand même
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ✅ Result dialog (success / error) */}
+      <AlertDialog open={resultOpen} onOpenChange={setResultOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {resultKind === "success" ? "Succès" : "Erreur"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{resultMsg}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => {
+                setResultOpen(false);
+                // optional: close the sheet after success
+                if (resultKind === "success") {
+                  p.setOpen(false);
+                  p.onCancel(); // resets form in your page
+                }
+              }}
+            >
+              OK
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

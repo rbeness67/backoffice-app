@@ -12,7 +12,7 @@ function sanitize(input: string) {
   return String(input ?? "")
     .trim()
     .replace(/\s+/g, "_")
-    .replace(/[^\w\-().]/g, "") // keep letters/numbers/_-().
+    .replace(/[^\w\-().]/g, "")
     .slice(0, 80) || "UNKNOWN";
 }
 
@@ -24,16 +24,21 @@ function parseYearMonth(invoiceDate: string) {
 }
 
 /**
+ * ✅ BACKEND source of truth for S3 structure names
+ */
+function getStructureLabelBackend(code: string) {
+  switch (code) {
+    case "STRUCTURE_1":
+      return "Cocci Bulles";
+    case "STRUCTURE_2":
+      return "Mille Et Une Bulles";
+    default:
+      return code;
+  }
+}
+
+/**
  * POST /uploads/presign
- * body: {
- *   filename: string,
- *   mimeType: string,
- *   invoiceDate: string (YYYY-MM-DD),
- *   supplierName: string,
- *   invoiceNumber: string,
- *   structure: string,
- *   fileIndex?: number (1-based)
- * }
  */
 export async function presignUpload(req: Request, res: Response) {
   const {
@@ -61,21 +66,24 @@ export async function presignUpload(req: Request, res: Response) {
     return res.status(400).json({ message: "invoiceDate must be YYYY-MM-DD" });
   }
 
-  const structureSeg = sanitize(String(structure));
+  // ✅ convert STRUCTURE_X → human label → safe S3 segment
+  const structureLabel = getStructureLabelBackend(String(structure));
+  const structureSeg = sanitize(structureLabel);
+
   const supplierSeg = sanitize(String(supplierName));
   const invoiceNumberSeg = sanitize(String(invoiceNumber));
 
-  // extension: prefer filename extension; fallback for PDF
   let ext = extFromName(String(filename));
   if (!ext && String(mimeType) === "application/pdf") ext = ".pdf";
 
-  // If multiple files, add suffix _2, _3... (keep first without suffix)
   const idx = Number(fileIndex);
   const suffix =
     Number.isFinite(idx) && idx >= 2 ? `_${Math.floor(idx)}` : "";
 
-  // ✅ NEW PATH FORMAT:
-  // invoices/<STRUCTURE>/<YEAR>/<MONTH>/<SUPPLIER>/FACTURE_<INVOICE_NUMBER>.pdf
+  /**
+   * FINAL PATH:
+   * invoices/Cocci_Bulles/2026/01/Orange/FACTURE_JEL-26-004.pdf
+   */
   const key = `invoices/${structureSeg}/${ym.year}/${ym.month}/${supplierSeg}/FACTURE_${invoiceNumberSeg}${suffix}${ext}`;
 
   const cmd = new PutObjectCommand({
