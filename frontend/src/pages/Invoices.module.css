@@ -59,3 +59,104 @@
   font-size: 12px;
   border: 1px solid rgba(0, 0, 0, 0.12);
 }
+
+/* ----------------------------- */
+/* ✅ Mobile-compliant ADDITIONS  */
+/* (Nothing above was removed.)  */
+/* ----------------------------- */
+
+/* Better small-screen spacing */
+@media (max-width: 767px) {
+  .page {
+    padding: 16px 12px;
+    gap: 16px;
+  }
+
+  .globalError {
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+}
+
+/* ✅ shadcn Tabs mobile scroll wrapper */
+.tabsScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  padding-bottom: 2px;
+}
+
+.tabsScroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Optional subtle fade edges for scroll affordance */
+.tabsScroll {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 16px,
+    black calc(100% - 16px),
+    transparent 100%
+  );
+}
+
+/* TabsList becomes inline-flex and scrollable */
+.tabsList {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  width: max-content;
+  min-width: 100%;
+  padding: 2px 0;
+
+  scroll-snap-type: x mandatory;
+}
+
+/* Tab triggers: prevent wrapping, make touch targets comfy */
+.tabTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  min-height: 40px;
+  padding: 8px 12px;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  max-width: 78vw; /* keep tabs from taking the whole screen */
+  scroll-snap-align: start;
+}
+
+/* Badge inside triggers should never shrink away */
+.tabTrigger .badge {
+  flex: 0 0 auto;
+}
+
+/* Desktop/tablet: remove max-width constraint */
+@media (min-width: 768px) {
+  .tabTrigger {
+    max-width: none;
+  }
+}
+
+/* If you still use your old .tabs row anywhere, make it mobile scrollable too */
+@media (max-width: 767px) {
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    min-height: 40px;
+    white-space: nowrap;
+  }
+}

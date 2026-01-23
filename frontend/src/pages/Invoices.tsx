@@ -39,7 +39,10 @@ function monthKey(d: Date) {
 }
 
 function monthLabelFR(d: Date) {
-  const label = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
+  const label = new Intl.DateTimeFormat("fr-FR", {
+    month: "long",
+    year: "numeric",
+  }).format(d);
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
@@ -102,7 +105,10 @@ export default function InvoicesPage() {
       return tb - ta;
     });
 
-    const map = new Map<string, { key: string; title: string; monthDate: Date | null; items: any[] }>();
+    const map = new Map<
+      string,
+      { key: string; title: string; monthDate: Date | null; items: any[] }
+    >();
 
     for (const inv of sorted) {
       const d = toDateSafe(inv.invoiceDate);
@@ -184,19 +190,26 @@ export default function InvoicesPage() {
       {data.error && <div className={styles.globalError}>{data.error}</div>}
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList>
-          <TabsTrigger value="all" className="gap-2">
-            Toutes les structures
-            <Badge variant="secondary">{counts.all ?? 0}</Badge>
-          </TabsTrigger>
-
-          {structureLabels.map((label) => (
-            <TabsTrigger key={label} value={label} className="gap-2">
-              {label}
-              <Badge variant="secondary">{counts[label] ?? 0}</Badge>
+        {/* ✅ Mobile-friendly horizontal scroll wrapper */}
+        <div className={styles.tabsScroll}>
+          <TabsList className={styles.tabsList}>
+            <TabsTrigger value="all" className={`${styles.tabTrigger} gap-2`}>
+              Toutes les structures
+              <Badge variant="secondary" className={styles.badge}>
+                {counts.all ?? 0}
+              </Badge>
             </TabsTrigger>
-          ))}
-        </TabsList>
+
+            {structureLabels.map((label) => (
+              <TabsTrigger key={label} value={label} className={`${styles.tabTrigger} gap-2`}>
+                {label}
+                <Badge variant="secondary" className={styles.badge}>
+                  {counts[label] ?? 0}
+                </Badge>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
         <TabsContent value={tab} className="mt-4">
           <InvoicesTable
