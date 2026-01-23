@@ -37,7 +37,7 @@ export function useInvoiceEdit(opts: {
     setAmountTTC(inv.amountTTC != null ? String(inv.amountTTC) : "");
 
     // IMPORTANT: c'est inv.structure maintenant
-    setStructure((inv.invoiceStructure as any) ?? "STRUCTURE_1");
+    setStructure((inv.structure as any) ?? "STRUCTURE_1");
 
     setOpen(true);
   }
