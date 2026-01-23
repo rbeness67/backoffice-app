@@ -39,11 +39,31 @@ function monthKey(d: Date) {
 }
 
 function monthLabelFR(d: Date) {
-  const label = new Intl.DateTimeFormat("fr-FR", {
-    month: "long",
-    year: "numeric",
-  }).format(d);
+  const label = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
   return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/** ✅ tiny hook to detect mobile */
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia(query);
+
+    const onChange = () => setMatches(mql.matches);
+    onChange();
+
+    if (mql.addEventListener) mql.addEventListener("change", onChange);
+    else mql.addListener(onChange);
+
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener("change", onChange);
+      else mql.removeListener(onChange);
+    };
+  }, [query]);
+
+  return matches;
 }
 
 export default function InvoicesPage() {
@@ -51,6 +71,9 @@ export default function InvoicesPage() {
   const onDownload = useInvoiceDownload(data.setError);
 
   const [tab, setTab] = useState<StructureTab>("all");
+
+  // ✅ small screens: show only supplier + amount in table
+  const isCompact = useMediaQuery("(max-width: 640px)");
 
   // ✅ Normalize items so UI always has the fields it needs
   const normalizedItems = useMemo(() => {
@@ -61,15 +84,15 @@ export default function InvoicesPage() {
 
       return {
         ...i,
-        structure, // raw code/value used by backend
-        structureLabel: getStructureLabel(structure), // what user sees
+        structure,
+        structureLabel: getStructureLabel(structure),
         supplierName,
         invoiceNumber,
       };
     });
   }, [data.items]);
 
-  // ✅ Structure labels (tabs) derived from actual data (no Structure_1/2 anywhere)
+  // ✅ Structure labels (tabs) derived from actual data
   const structureLabels = useMemo(() => {
     const set = new Set<string>();
     for (const it of normalizedItems) {
@@ -95,7 +118,7 @@ export default function InvoicesPage() {
     return normalizedItems.filter((it: any) => it.structureLabel === tab);
   }, [normalizedItems, tab]);
 
-  // ✅ Group the currently displayed items by Month (for the table mini-headers)
+  // ✅ Group the currently displayed items by Month
   const monthGroups = useMemo(() => {
     const sorted = [...filteredItems].sort((a: any, b: any) => {
       const da = toDateSafe(a.invoiceDate);
@@ -105,10 +128,7 @@ export default function InvoicesPage() {
       return tb - ta;
     });
 
-    const map = new Map<
-      string,
-      { key: string; title: string; monthDate: Date | null; items: any[] }
-    >();
+    const map = new Map<string, { key: string; title: string; monthDate: Date | null; items: any[] }>();
 
     for (const inv of sorted) {
       const d = toDateSafe(inv.invoiceDate);
@@ -147,7 +167,6 @@ export default function InvoicesPage() {
     })),
     onCreated: (created) => {
       data.setItems((prev: any[]) => [created, ...prev]);
-
       toast.success("Facture créée", {
         description: `${created.invoiceNumber ?? "Facture"} ajoutée avec succès.`,
       });
@@ -166,50 +185,41 @@ export default function InvoicesPage() {
     setGlobalError: data.setError,
   });
 
-  // ✅ Toast on global errors (fetch / delete / download / etc.)
   useEffect(() => {
     if (!data.error) return;
-    toast.error("Erreur", {
-      description: data.error,
-    });
+    toast.error("Erreur", { description: data.error });
   }, [data.error]);
 
-  // ✅ Toast on create errors too
   useEffect(() => {
     if (!create.error) return;
-    toast.error("Erreur création", {
-      description: create.error,
-    });
+    toast.error("Erreur création", { description: create.error });
   }, [create.error]);
 
   return (
     <div className={styles.page}>
       <InvoicesHeader onCreateClick={() => create.setOpen(true)} />
 
-      {/* optional inline error (toast already shows it) */}
       {data.error && <div className={styles.globalError}>{data.error}</div>}
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        {/* ✅ Mobile-friendly horizontal scroll wrapper */}
-        <div className={styles.tabsScroll}>
-          <TabsList className={styles.tabsList}>
-            <TabsTrigger value="all" className={`${styles.tabTrigger} gap-2`}>
-              Toutes les structures
+        {/* ✅ No horizontal scroll: tabs wrap */}
+        <TabsList className={styles.tabsListNoScroll}>
+          <TabsTrigger value="all" className={`${styles.tabTriggerNoScroll} gap-2`}>
+            Toutes les structures
+            <Badge variant="secondary" className={styles.badge}>
+              {counts.all ?? 0}
+            </Badge>
+          </TabsTrigger>
+
+          {structureLabels.map((label) => (
+            <TabsTrigger key={label} value={label} className={`${styles.tabTriggerNoScroll} gap-2`}>
+              {label}
               <Badge variant="secondary" className={styles.badge}>
-                {counts.all ?? 0}
+                {counts[label] ?? 0}
               </Badge>
             </TabsTrigger>
-
-            {structureLabels.map((label) => (
-              <TabsTrigger key={label} value={label} className={`${styles.tabTrigger} gap-2`}>
-                {label}
-                <Badge variant="secondary" className={styles.badge}>
-                  {counts[label] ?? 0}
-                </Badge>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
+          ))}
+        </TabsList>
 
         <TabsContent value={tab} className="mt-4">
           <InvoicesTable
@@ -219,6 +229,7 @@ export default function InvoicesPage() {
             onDownload={onDownload}
             onEdit={edit.openEdit}
             onDelete={del.ask}
+            compact={isCompact} // ✅ NEW: table will render only Supplier+Amount on small screens
           />
         </TabsContent>
       </Tabs>
@@ -258,8 +269,6 @@ export default function InvoicesPage() {
       <EditInvoiceSheet hook={edit} suppliers={data.suppliers} />
       <DeleteInvoiceDialog hook={del} />
 
-      {/* ✅ If you don't already render it globally, keep it here.
-          Best practice: put it once in AppLayout instead. */}
       <Toaster position="top-right" richColors />
     </div>
   );

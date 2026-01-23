@@ -139,3 +139,59 @@
 .tableWrap :global(.text-red-600) {
   font-weight: 600;
 }
+
+/* ───────────────────────────── */
+/* ✅ ADDITIONS (no removals)     */
+/* Mobile compact mode helpers   */
+/* ───────────────────────────── */
+
+/* Keep long supplier names from breaking layout */
+.supplierCellCompact {
+  max-width: 0; /* allow ellipsis within table layout */
+}
+
+.supplierCompactMain {
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.supplierCompactSub {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.2;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile: tighten paddings a bit */
+@media (max-width: 640px) {
+  .inner {
+    padding: 12px;
+  }
+
+  .tableWrap :global(thead th) {
+    font-size: 12px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .tableWrap :global(td) {
+    font-size: 14px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .month-title {
+    font-size: 18px;
+  }
+
+  .month-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+}

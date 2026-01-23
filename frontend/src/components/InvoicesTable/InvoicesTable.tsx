@@ -34,12 +34,18 @@ export function InvoicesTable(props: {
   loading: boolean;
   items: InvoiceRow[];
   groups?: Group[];
-  onDownload: (inv: InvoiceRow) => void;
+  onDownload: (inv: InvoiceRow) => void | Promise<void>; // ✅ allow async
   onEdit: (inv: InvoiceRow) => void;
   onDelete: (inv: InvoiceRow) => void;
+  compact?: boolean; // ✅ NEW
 }) {
   const { loading, items, groups } = props;
   const hasGroups = Array.isArray(groups) && groups.length > 0;
+
+  // ✅ Use prop if provided, otherwise fallback to responsive auto
+  const autoCompact =
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 640px)").matches : false;
+  const compact = props.compact ?? autoCompact;
 
   if (loading) {
     return (
@@ -90,82 +96,119 @@ export function InvoicesTable(props: {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>N°</TableHead>
-                          <TableHead>Fournisseur</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Structure</TableHead>
-                          <TableHead className="text-right">Docs</TableHead>
-                          <TableHead className="text-right">TTC</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                          {compact ? (
+                            <>
+                              <TableHead>Fournisseur</TableHead>
+                              <TableHead className="text-right">TTC</TableHead>
+                            </>
+                          ) : (
+                            <>
+                              <TableHead>N°</TableHead>
+                              <TableHead>Fournisseur</TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Structure</TableHead>
+                              <TableHead className="text-right">Docs</TableHead>
+                              <TableHead className="text-right">TTC</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </>
+                          )}
                         </TableRow>
                       </TableHeader>
 
                       <TableBody>
                         {g.items.map((row) => (
                           <TableRow key={row.id} className="group">
-                            <TableCell className="font-semibold tracking-tight">
-                              {row.invoiceNumber ?? "—"}
-                            </TableCell>
+                            {compact ? (
+                              <>
+                                <TableCell className={styles.supplierCellCompact}>
+                                  <div className={styles.supplierCompactMain}>
+                                    {row.supplierName ?? "—"}
+                                  </div>
+                                  <div className={styles.supplierCompactSub}>
+                                    {row.invoiceNumber ?? "—"} · {formatDateFR(row.invoiceDate)}
+                                  </div>
+                                </TableCell>
 
-                            <TableCell>{row.supplierName ?? "—"}</TableCell>
+                                <TableCell className="text-right font-medium">
+                                  {Number(row.amountTTC).toFixed(2)} €
+                                </TableCell>
+                              </>
+                            ) : (
+                              <>
+                                <TableCell className="font-semibold tracking-tight">
+                                  {row.invoiceNumber ?? "—"}
+                                </TableCell>
 
-                            <TableCell className="text-muted-foreground">
-                              {formatDateFR(row.invoiceDate)}
-                            </TableCell>
+                                <TableCell>{row.supplierName ?? "—"}</TableCell>
 
-                            {/* ✅ Structure label via shared util */}
-                            <TableCell className="text-muted-foreground">
-                              {getStructureLabel(row.structure)}
-                            </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {formatDateFR(row.invoiceDate)}
+                                </TableCell>
 
-                            <TableCell className="text-right text-muted-foreground">
-                              {row.documentsCount}
-                            </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {getStructureLabel(row.structure)}
+                                </TableCell>
 
-                            <TableCell className="text-right font-medium">
-                              {Number(row.amountTTC).toFixed(2)} €
-                            </TableCell>
+                                <TableCell className="text-right text-muted-foreground">
+                                  {row.documentsCount}
+                                </TableCell>
 
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="outline" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => props.onDownload(row)}>
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Télécharger document
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => props.onEdit(row)}>
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    Éditer
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => props.onDelete(row)}
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Supprimer
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
+                                <TableCell className="text-right font-medium">
+                                  {Number(row.amountTTC).toFixed(2)} €
+                                </TableCell>
+
+                                <TableCell className="text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="outline" size="icon" className="h-8 w-8">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => void props.onDownload(row)}>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Télécharger document
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => props.onEdit(row)}>
+                                        <Pencil className="mr-2 h-4 w-4" />
+                                        Éditer
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => props.onDelete(row)}
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Supprimer
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </>
+                            )}
                           </TableRow>
                         ))}
                       </TableBody>
 
-                      {/* TTC footer (shadcn-style) */}
                       <TableFooter>
                         <TableRow>
-                          <TableCell colSpan={5} className="text-muted-foreground">
-                            Total TTC
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            {totalTTC.toFixed(2)} €
-                          </TableCell>
-                          <TableCell />
+                          {compact ? (
+                            <>
+                              <TableCell className="text-muted-foreground">Total TTC</TableCell>
+                              <TableCell className="text-right font-semibold">
+                                {totalTTC.toFixed(2)} €
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell colSpan={5} className="text-muted-foreground">
+                                Total TTC
+                              </TableCell>
+                              <TableCell className="text-right font-semibold">
+                                {totalTTC.toFixed(2)} €
+                              </TableCell>
+                              <TableCell />
+                            </>
+                          )}
                         </TableRow>
                       </TableFooter>
                     </Table>

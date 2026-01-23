@@ -61,11 +61,9 @@
 }
 
 /* ----------------------------- */
-/* ✅ Mobile-compliant ADDITIONS  */
-/* (Nothing above was removed.)  */
+/* ✅ ADDITIONS / OVERRIDES ONLY  */
 /* ----------------------------- */
 
-/* Better small-screen spacing */
 @media (max-width: 767px) {
   .page {
     padding: 16px 12px;
@@ -78,85 +76,33 @@
   }
 }
 
-/* ✅ shadcn Tabs mobile scroll wrapper */
-.tabsScroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; /* Firefox */
-  padding-bottom: 2px;
-}
-
-.tabsScroll::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
-}
-
-/* Optional subtle fade edges for scroll affordance */
-.tabsScroll {
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    black 16px,
-    black calc(100% - 16px),
-    transparent 100%
-  );
-}
-
-/* TabsList becomes inline-flex and scrollable */
-.tabsList {
-  display: inline-flex;
+/* ✅ shadcn Tabs: NO horizontal scroll — wrap instead */
+.tabsListNoScroll {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  height: auto;       /* important: shadcn TabsList can have fixed height */
+  padding: 6px;
   align-items: center;
-  width: max-content;
-  min-width: 100%;
-  padding: 2px 0;
-
-  scroll-snap-type: x mandatory;
+  justify-content: flex-start;
+  width: 100%;
 }
 
-/* Tab triggers: prevent wrapping, make touch targets comfy */
-.tabTrigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-
-  min-height: 40px;
-  padding: 8px 12px;
-
-  white-space: nowrap;
+/* tab trigger: allow wrapping and be usable on mobile */
+.tabTriggerNoScroll {
+  min-height: 40px; /* touch friendly */
+  max-width: 100%;
+  white-space: normal; /* allow wrap */
   overflow: hidden;
   text-overflow: ellipsis;
-
-  max-width: 78vw; /* keep tabs from taking the whole screen */
-  scroll-snap-align: start;
+  display: inline-flex;
+  align-items: center;
 }
 
-/* Badge inside triggers should never shrink away */
-.tabTrigger .badge {
-  flex: 0 0 auto;
-}
-
-/* Desktop/tablet: remove max-width constraint */
-@media (min-width: 768px) {
-  .tabTrigger {
-    max-width: none;
-  }
-}
-
-/* If you still use your old .tabs row anywhere, make it mobile scrollable too */
-@media (max-width: 767px) {
-  .tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .tab {
-    min-height: 40px;
-    white-space: nowrap;
+/* On very small screens: make tabs more "grid-like" */
+@media (max-width: 420px) {
+  .tabTriggerNoScroll {
+    flex: 1 1 auto;       /* triggers can stretch */
+    justify-content: space-between;
   }
 }
