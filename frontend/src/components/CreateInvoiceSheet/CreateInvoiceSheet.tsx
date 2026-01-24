@@ -1,4 +1,9 @@
-import { useEffect, useState } from "react";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { format, parseISO, isValid } from "date-fns";
+import { Calendar as CalendarIcon } from "lucide-react";
+
 import {
   Sheet,
   SheetContent,
@@ -7,7 +12,13 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldSet,
+} from "@/components/ui/field";
 import {
   Select,
   SelectContent,
@@ -15,6 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,7 +65,7 @@ export function CreateInvoiceSheet(props: {
   supplierNewName: string;
   setSupplierNewName: (v: string) => void;
 
-  invoiceDate: string;
+  invoiceDate: string; // "YYYY-MM-DD"
   setInvoiceDate: (v: string) => void;
 
   amountTTC: string;
@@ -67,23 +84,16 @@ export function CreateInvoiceSheet(props: {
 
   onCancel: () => void;
 
-  /**
-   * NOTE: onSubmit may set p.error asynchronously (via hook).
-   * We wrap it to show success dialog when no error occurs.
-   */
   onSubmit: () => Promise<void> | void;
 }) {
   const p = props;
 
-  // ✅ Only show validation UI after user tries to submit
   const [submitted, setSubmitted] = useState(false);
 
-  // ✅ Success / Error dialog
   const [resultOpen, setResultOpen] = useState(false);
   const [resultKind, setResultKind] = useState<"success" | "error">("success");
   const [resultMsg, setResultMsg] = useState<string>("");
 
-  // Reset local UI states when opening/closing
   useEffect(() => {
     if (!p.open) {
       setSubmitted(false);
@@ -92,7 +102,6 @@ export function CreateInvoiceSheet(props: {
     }
   }, [p.open]);
 
-  // If the external error prop changes -> show error dialog
   useEffect(() => {
     if (!p.open) return;
     if (!p.error) return;
@@ -115,25 +124,25 @@ export function CreateInvoiceSheet(props: {
 
   const filesOk = (p.files?.length ?? 0) > 0;
 
-  const canSubmit = supplierOk && invoiceDateOk && structureOk && amountOk && filesOk;
+  const canSubmit =
+    supplierOk && invoiceDateOk && structureOk && amountOk && filesOk;
 
-  // ✅ apply invalid only after submit attempt
   const showInvalid = submitted;
+
+  const invoiceDateAsDate = useMemo(() => {
+    if (!p.invoiceDate) return undefined;
+    const d = parseISO(p.invoiceDate);
+    return isValid(d) ? d : undefined;
+  }, [p.invoiceDate]);
 
   async function handleSubmit() {
     setSubmitted(true);
-
-    // If client-side invalid -> do not open dialogs, just show inline errors
     if (!canSubmit) return;
 
-    // Call parent submit
     await Promise.resolve(p.onSubmit());
 
-    // If duplicate dialog opens, we don't show "success" yet
     if (p.confirmDuplicateOpen) return;
 
-    // If parent sets error synchronously, effect will show error dialog
-    // If no error, show success dialog
     if (!p.error) {
       setResultKind("success");
       setResultMsg("Facture créée avec succès.");
@@ -157,139 +166,201 @@ export function CreateInvoiceSheet(props: {
 
           <div className={styles.scroll}>
             <div className={styles.body}>
+              {/* Numéro */}
               <div className={styles.section}>
-                <div className={styles.block}>
-                  <Label>Numéro de facture</Label>
-                  <div className={styles.readonly}>{p.nextNumber || "…"}</div>
-                  <p className={styles.hint}>
-                    Généré automatiquement (JEL-YY-XXX) basé sur l’année en cours.
-                  </p>
-                </div>
+                <FieldGroup>
+                  <FieldSet>
+                    <Field>
+                      <FieldLabel>Numéro de facture</FieldLabel>
+                      <div className={styles.readonly}>{p.nextNumber || "…"}</div>
+                      <FieldDescription>
+                        Généré automatiquement (JEL-YY-XXX) basé sur l’année en
+                        cours.
+                      </FieldDescription>
+                    </Field>
+                  </FieldSet>
+                </FieldGroup>
               </div>
 
+              {/* Champs */}
               <div className={styles.section}>
-                <div className={styles.block}>
-                  <div className={styles.rowBetween}>
-                    <Label>Fournisseur</Label>
-                    <button
-                      type="button"
-                      className={styles.linkBtn}
-                      onClick={() => {
-                        p.setSupplierMode(p.supplierMode === "existing" ? "new" : "existing");
-                        p.setSupplierId("");
-                        p.setSupplierNewName("");
-                      }}
-                    >
-                      {p.supplierMode === "existing"
-                        ? "Créer un nouveau fournisseur"
-                        : "Choisir un fournisseur existant"}
-                    </button>
-                  </div>
+                <FieldGroup>
+                  <FieldSet>
+                    {/* Fournisseur */}
+                    <Field>
+                      <div className={styles.rowBetween}>
+                        <FieldLabel>Fournisseur</FieldLabel>
+                        <button
+                          type="button"
+                          className={styles.linkBtn}
+                          onClick={() => {
+                            p.setSupplierMode(
+                              p.supplierMode === "existing" ? "new" : "existing"
+                            );
+                            p.setSupplierId("");
+                            p.setSupplierNewName("");
+                          }}
+                        >
+                          {p.supplierMode === "existing"
+                            ? "Créer un nouveau fournisseur"
+                            : "Choisir un fournisseur existant"}
+                        </button>
+                      </div>
 
-                  {p.supplierMode === "existing" ? (
-                    <Select value={p.supplierId} onValueChange={p.setSupplierId}>
-                      <SelectTrigger
+                      {p.supplierMode === "existing" ? (
+                        <Select value={p.supplierId} onValueChange={p.setSupplierId}>
+                          <SelectTrigger
+                            className="w-full"
+                            aria-invalid={showInvalid ? !supplierOk : undefined}
+                          >
+                            <SelectValue placeholder="Choisir un fournisseur" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {p.suppliers.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          className={styles.control}
+                          value={p.supplierNewName}
+                          onChange={(e) => p.setSupplierNewName(e.target.value)}
+                          placeholder="Nom du fournisseur"
+                          aria-invalid={showInvalid ? !supplierOk : undefined}
+                        />
+                      )}
+
+                      {showInvalid && !supplierOk && (
+                        <FieldDescription className={styles.fieldError}>
+                          Champ requis.
+                        </FieldDescription>
+                      )}
+                    </Field>
+
+                    {/* Date facture */}
+                    <Field>
+                      <FieldLabel>Date facture</FieldLabel>
+
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            data-empty={!p.invoiceDate}
+                            className="w-full justify-start text-left font-normal data-[empty=true]:text-muted-foreground"
+                            aria-invalid={showInvalid ? !invoiceDateOk : undefined}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {invoiceDateAsDate
+                              ? format(invoiceDateAsDate, "PPP")
+                              : "Choisir une date"}
+                          </Button>
+                        </PopoverTrigger>
+
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={invoiceDateAsDate}
+                            onSelect={(date) => {
+                              if (!date) return;
+                              p.setInvoiceDate(format(date, "yyyy-MM-dd"));
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+
+                      {showInvalid && !invoiceDateOk && (
+                        <FieldDescription className={styles.fieldError}>
+                          Champ requis.
+                        </FieldDescription>
+                      )}
+                    </Field>
+
+                    {/* Structure */}
+                    <Field>
+                      <FieldLabel>Structure</FieldLabel>
+
+                      <Select value={p.structure} onValueChange={p.setStructure}>
+                        <SelectTrigger
+                          className="w-full"
+                          aria-invalid={showInvalid ? !structureOk : undefined}
+                        >
+                          <SelectValue placeholder="Sélectionner une structure" />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                          {STRUCTURES.map((code) => (
+                            <SelectItem key={code} value={code}>
+                              {getStructureLabel(code)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {showInvalid && !structureOk && (
+                        <FieldDescription className={styles.fieldError}>
+                          Champ requis.
+                        </FieldDescription>
+                      )}
+                    </Field>
+
+                    {/* Montant */}
+                    <Field>
+                      <FieldLabel htmlFor="createAmountTTC">Montant TTC</FieldLabel>
+                      <Input
+                        id="createAmountTTC"
                         className={styles.control}
-                        aria-invalid={showInvalid ? !supplierOk : undefined}
-                      >
-                        <SelectValue placeholder="Choisir un fournisseur parmi ceux existants" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {p.suppliers.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      className={styles.control}
-                      value={p.supplierNewName}
-                      onChange={(e) => p.setSupplierNewName(e.target.value)}
-                      placeholder="Nom du fournisseur"
-                      aria-invalid={showInvalid ? !supplierOk : undefined}
-                    />
-                  )}
+                        inputMode="decimal"
+                        value={p.amountTTC}
+                        onChange={(e) => p.setAmountTTC(e.target.value)}
+                        placeholder="120.00"
+                        aria-invalid={showInvalid ? !amountOk : undefined}
+                      />
+                      {showInvalid && !amountOk && (
+                        <FieldDescription className={styles.fieldError}>
+                          Champ requis. Saisis un montant valide (&gt; 0).
+                        </FieldDescription>
+                      )}
+                    </Field>
 
-                  {showInvalid && !supplierOk && <p className={styles.fieldError}>Champ requis.</p>}
-                </div>
+                    {/* Documents */}
+                    <Field>
+                      <FieldLabel>Documents (PDF ou images)</FieldLabel>
+                      <Input
+                        className={styles.control}
+                        type="file"
+                        accept="application/pdf,image/*"
+                        multiple
+                        onChange={(e) =>
+                          p.setFiles(Array.from(e.target.files ?? []))
+                        }
+                        aria-invalid={showInvalid ? !filesOk : undefined}
+                      />
 
-                <div className={styles.block}>
-                  <Label htmlFor="createInvoiceDate">Date facture</Label>
-                  <Input
-                    id="createInvoiceDate"
-                    type="date"
-                    className={styles.control}
-                    value={p.invoiceDate}
-                    onChange={(e) => p.setInvoiceDate(e.target.value)}
-                    aria-invalid={showInvalid ? !invoiceDateOk : undefined}
-                  />
-                  {showInvalid && !invoiceDateOk && <p className={styles.fieldError}>Champ requis.</p>}
-                </div>
+                      {p.files.length > 0 ? (
+                        <FieldDescription className={styles.hint}>
+                          {p.files.length} fichier(s) sélectionné(s)
+                        </FieldDescription>
+                      ) : (
+                        <FieldDescription className={styles.hintMuted}>
+                          Ajoute au moins un document.
+                        </FieldDescription>
+                      )}
 
-                <div className={styles.block}>
-                  <Label>Structure</Label>
-
-                  <Select value={p.structure} onValueChange={p.setStructure}>
-                    <SelectTrigger
-                      className={styles.control}
-                      aria-invalid={showInvalid ? !structureOk : undefined}
-                    >
-                      <SelectValue placeholder="Sélectionner une structure" />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      {STRUCTURES.map((code) => (
-                        <SelectItem key={code} value={code}>
-                          {getStructureLabel(code)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {showInvalid && !structureOk && <p className={styles.fieldError}>Champ requis.</p>}
-                </div>
-
-                <div className={styles.block}>
-                  <Label htmlFor="createAmountTTC">Montant TTC</Label>
-                  <Input
-                    id="createAmountTTC"
-                    className={styles.control}
-                    inputMode="decimal"
-                    value={p.amountTTC}
-                    onChange={(e) => p.setAmountTTC(e.target.value)}
-                    placeholder="120.00"
-                    aria-invalid={showInvalid ? !amountOk : undefined}
-                  />
-                  {showInvalid && !amountOk && (
-                    <p className={styles.fieldError}>
-                      Champ requis. Saisis un montant valide (&gt; 0).
-                    </p>
-                  )}
-                </div>
-
-                <div className={styles.block}>
-                  <Label>Documents (PDF ou images)</Label>
-                  <Input
-                    className={styles.control}
-                    type="file"
-                    accept="application/pdf,image/*"
-                    multiple
-                    onChange={(e) => p.setFiles(Array.from(e.target.files ?? []))}
-                    aria-invalid={showInvalid ? !filesOk : undefined}
-                  />
-                  <div className={styles.filesMeta}>
-                    {p.files.length > 0 ? (
-                      <p className={styles.hint}>{p.files.length} fichier(s) sélectionné(s)</p>
-                    ) : (
-                      <p className={styles.hintMuted}>Ajoute au moins un document.</p>
-                    )}
-                  </div>
-                  {showInvalid && !filesOk && <p className={styles.fieldError}>Champ requis.</p>}
-                </div>
+                      {showInvalid && !filesOk && (
+                        <FieldDescription className={styles.fieldError}>
+                          Champ requis.
+                        </FieldDescription>
+                      )}
+                    </Field>
+                  </FieldSet>
+                </FieldGroup>
               </div>
 
+              {/* Totaux */}
               <div className={styles.section}>
                 <div className={styles.totals}>
                   <div className={styles.totalRowStrong}>
@@ -299,7 +370,6 @@ export function CreateInvoiceSheet(props: {
                 </div>
               </div>
 
-              {/* Keep inline error if you still want it (optional) */}
               {p.error && <div className={styles.error}>{p.error}</div>}
             </div>
           </div>
@@ -327,7 +397,7 @@ export function CreateInvoiceSheet(props: {
         </SheetContent>
       </Sheet>
 
-      {/* Duplicate confirmation dialog (unchanged) */}
+      {/* Duplicate confirmation dialog */}
       <AlertDialog
         open={p.confirmDuplicateOpen}
         onOpenChange={(v) => (!v ? p.cancelDuplicate() : null)}
@@ -360,14 +430,17 @@ export function CreateInvoiceSheet(props: {
             <AlertDialogCancel disabled={p.saving} onClick={p.cancelDuplicate}>
               Annuler
             </AlertDialogCancel>
-            <AlertDialogAction disabled={p.saving} onClick={p.confirmDuplicateAndSubmit}>
+            <AlertDialogAction
+              disabled={p.saving}
+              onClick={p.confirmDuplicateAndSubmit}
+            >
               Créer quand même
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ✅ Result dialog (success / error) */}
+      {/* Result dialog */}
       <AlertDialog open={resultOpen} onOpenChange={setResultOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -380,10 +453,9 @@ export function CreateInvoiceSheet(props: {
             <AlertDialogAction
               onClick={() => {
                 setResultOpen(false);
-                // optional: close the sheet after success
                 if (resultKind === "success") {
                   p.setOpen(false);
-                  p.onCancel(); // resets form in your page
+                  p.onCancel();
                 }
               }}
             >
