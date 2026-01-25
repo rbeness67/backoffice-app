@@ -11,13 +11,23 @@
   }
 }
 
+/* ----------------------------- */
+/* Errors (shadcn destructive)   */
+/* ----------------------------- */
+
 .globalError {
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 13px;
-  background: rgba(255, 0, 0, 0.06);
-  color: #b00020;
+  line-height: 1.35;
+  background: color-mix(in oklab, var(--destructive) 12%, transparent);
+  color: var(--destructive);
+  border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
 }
+
+/* ----------------------------- */
+/* Tabs                          */
+/* ----------------------------- */
 
 .tabs {
   display: flex;
@@ -28,7 +38,7 @@
 
 .tab {
   appearance: none;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--border);
   background: transparent;
   padding: 8px 12px;
   border-radius: 999px;
@@ -37,16 +47,25 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  color: var(--muted-foreground);
+  transition: background-color 0.15s ease, color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .tab:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--accent);
+  color: var(--foreground);
 }
 
 .tabActive {
-  background: rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.2);
+  background: oklch(0.98 0.02 166);;
+  border-color: var(--primary);
+  color: var(--primary-foreground);
 }
+
+/* ----------------------------- */
+/* Badge                         */
+/* ----------------------------- */
 
 .badge {
   display: inline-flex;
@@ -57,11 +76,14 @@
   padding: 0 8px;
   border-radius: 999px;
   font-size: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 /* ----------------------------- */
-/* ✅ ADDITIONS / OVERRIDES ONLY  */
+/* Responsive tweaks             */
 /* ----------------------------- */
 
 @media (max-width: 767px) {
@@ -72,37 +94,39 @@
 
   .globalError {
     overflow-wrap: anywhere;
-    line-height: 1.35;
   }
 }
 
-/* ✅ shadcn Tabs: NO horizontal scroll — wrap instead */
+/* ----------------------------- */
+/* shadcn Tabs — no scroll       */
+/* ----------------------------- */
+
 .tabsListNoScroll {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  height: auto;       /* important: shadcn TabsList can have fixed height */
+  height: auto;
   padding: 6px;
   align-items: center;
   justify-content: flex-start;
   width: 100%;
 }
 
-/* tab trigger: allow wrapping and be usable on mobile */
 .tabTriggerNoScroll {
-  min-height: 40px; /* touch friendly */
+  color: oklch(0.60 0.13 163);
+  min-height: 40px;
   max-width: 100%;
-  white-space: normal; /* allow wrap */
+  white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
   display: inline-flex;
   align-items: center;
 }
 
-/* On very small screens: make tabs more "grid-like" */
+/* Extra-small screens */
 @media (max-width: 420px) {
   .tabTriggerNoScroll {
-    flex: 1 1 auto;       /* triggers can stretch */
+    flex: 1 1 auto;
     justify-content: space-between;
   }
 }

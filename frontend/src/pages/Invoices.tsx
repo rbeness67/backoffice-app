@@ -204,7 +204,10 @@ export default function InvoicesPage() {
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         {/* ✅ No horizontal scroll: tabs wrap */}
         <TabsList className={styles.tabsListNoScroll}>
-          <TabsTrigger value="all" className={`${styles.tabTriggerNoScroll} gap-2`}>
+          <TabsTrigger
+            value="all"
+            className={`${styles.tabTriggerNoScroll} group gap-2`}
+          >
             Toutes les structures
             <Badge variant="secondary" className={styles.badge}>
               {counts.all ?? 0}
@@ -212,7 +215,11 @@ export default function InvoicesPage() {
           </TabsTrigger>
 
           {structureLabels.map((label) => (
-            <TabsTrigger key={label} value={label} className={`${styles.tabTriggerNoScroll} gap-2`}>
+            <TabsTrigger
+              key={label}
+              value={label}
+              className={`${styles.tabTriggerNoScroll} group gap-2`}
+            >
               {label}
               <Badge variant="secondary" className={styles.badge}>
                 {counts[label] ?? 0}
@@ -220,6 +227,8 @@ export default function InvoicesPage() {
             </TabsTrigger>
           ))}
         </TabsList>
+
+
 
         <TabsContent value={tab} className="mt-4">
           <InvoicesTable

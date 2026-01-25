@@ -124,7 +124,7 @@
   border-radius: 999px;
   color: hsl(var(--muted-foreground));
   border: 1px solid hsl(var(--border));
-  background: transparent;
+  background: oklch(0.70 0.15 162);
 }
 
 /* ───────────────────────────── */
@@ -193,5 +193,7 @@
   .month-badge {
     font-size: 11px;
     padding: 2px 8px;
+    background: oklch(0.70 0.15 162);
+
   }
 }
