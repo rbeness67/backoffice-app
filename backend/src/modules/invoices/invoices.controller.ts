@@ -487,6 +487,13 @@ export async function downloadMonthDocumentsZip(req: Request, res: Response) {
     return res.status(400).json({ message: e?.message ?? "Erreur génération ZIP" });
   }
 }
+function withTimeout<T>(p: Promise<T>, ms: number, label: string) {
+  let t: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, rej) => {
+    t = setTimeout(() => rej(new Error(`${label} timeout (${ms}ms)`)), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => t && clearTimeout(t));
+}
 
 export async function emailMonthDocumentsZip(req: Request, res: Response) {
   try {
@@ -496,9 +503,7 @@ export async function emailMonthDocumentsZip(req: Request, res: Response) {
     if (!email || typeof email !== "string") {
       return res.status(400).json({ message: "Email manquant" });
     }
-
-    // Basic email validation
-    const okEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const okEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     if (!okEmail) return res.status(400).json({ message: "Email invalide" });
 
     const { start, end } = monthKeyToRange(monthKey);
@@ -514,7 +519,6 @@ export async function emailMonthDocumentsZip(req: Request, res: Response) {
       return res.status(404).json({ message: "Aucune facture pour ce mois." });
     }
 
-    // Collect all docs (all invoices)
     const docs: Array<{
       structure: string;
       supplierName: string;
@@ -543,61 +547,71 @@ export async function emailMonthDocumentsZip(req: Request, res: Response) {
       return res.status(404).json({ message: "Aucun document à exporter pour ce mois." });
     }
 
-    // Create ZIP stream -> upload to S3
+    // ───────────── ZIP stream + upload S3 (robuste) ─────────────
     const archive = archiver("zip", { zlib: { level: 9 } });
+    const zipStream = new PassThrough();
 
-    archive.on("warning", (err) => console.warn("ZIP warning:", err));
-    archive.on("error", (err) => {
-      console.error("ZIP error:", err);
-      throw err;
+    // IMPORTANT: propagate errors so we don't hang
+    const streamError = new Promise<never>((_, rej) => {
+      archive.on("error", rej);
+      zipStream.on("error", rej);
     });
 
-    const zipStream = new PassThrough();
+    // pipe first
     archive.pipe(zipStream);
 
-    // Add files
+    // start upload NOW (it will consume as archive generates bytes)
+    const zipKey = `exports/invoices/${monthKey}/${uuidv4()}.zip`;
+    const uploadPromise = uploadStreamToS3({
+      key: zipKey,
+      body: zipStream,
+      contentType: "application/zip",
+    });
+
     const monthFolder = safeName(monthTitle);
 
     for (const d of docs) {
       const stream = await getS3ObjectStream(d.s3Key);
 
       const ext =
-        d.docType.toUpperCase() === "PDF" ? "pdf" :
-        d.docType.toUpperCase() === "IMAGE" ? "jpg" :
-        "bin";
+        d.docType.toUpperCase() === "PDF"
+          ? "pdf"
+          : d.docType.toUpperCase() === "IMAGE"
+          ? "jpg"
+          : "bin";
 
       const fileName = `${String(d.index).padStart(2, "0")}-${safeName(d.docType)}.${ext}`;
 
-      // ✅ Requested structure:
-      // "Janvier 2026/Nom_De_La_Structure/Nom_Du_Fournisseur/Fichier"
+      // "Janvier 2026/Structure/Fournisseur/Fichier"
       const zipPath = `${monthFolder}/${safeName(d.structure)}/${safeName(d.supplierName)}/${fileName}`;
 
       archive.append(stream, { name: zipPath });
     }
 
-    await archive.finalize();
+    // finalize zip (doesn't mean upload finished yet)
+    archive.finalize();
 
-    const zipKey = `exports/invoices/${monthKey}/${uuidv4()}.zip`;
+    // Wait upload OR any stream error, with timeout (prevents forever pending)
+    await withTimeout(Promise.race([uploadPromise, streamError]), 60_000, "ZIP upload");
 
-    await uploadStreamToS3({
-      key: zipKey,
-      body: zipStream,
-      contentType: "application/zip",
-    });
+    // Signed URL (24h)
+    const url = await withTimeout(getPresignedGetUrl(zipKey, 24 * 60 * 60), 10_000, "Presign");
 
-    // Presigned URL valid 24h
-    const url = await getPresignedGetUrl(zipKey, 24 * 60 * 60);
-
-    await sendZipLinkEmail({
-      to: email,
-      subject: `Export factures — ${monthTitle}`,
-      monthTitle,
-      downloadUrl: url,
-    });
+    // Send mail with timeout too
+    await withTimeout(
+      sendZipLinkEmail({
+        to: email.trim(),
+        subject: `Export factures — ${monthTitle}`,
+        monthTitle,
+        downloadUrl: url,
+      }),
+      30_000,
+      "SMTP send"
+    );
 
     return res.json({ ok: true });
   } catch (e: any) {
-    console.error(e);
+    console.error("emailMonthDocumentsZip error:", e);
     return res.status(500).json({ message: e?.message ?? "Erreur envoi email" });
   }
 }

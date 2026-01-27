@@ -8,6 +8,11 @@ export const mailer = nodemailer.createTransport({
     user: process.env.SMTP_USER!,
     pass: process.env.SMTP_PASS!,
   },
+
+  // ✅ anti "pending forever"
+  connectionTimeout: 10_000,
+  greetingTimeout: 10_000,
+  socketTimeout: 20_000,
 });
 
 export async function sendZipLinkEmail(params: {

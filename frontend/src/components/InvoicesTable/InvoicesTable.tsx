@@ -30,6 +30,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Field,
   FieldContent,
   FieldDescription,
@@ -47,6 +54,7 @@ import {
   DownloadCloud,
   Mail,
   MonitorDown,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateFR } from "../../utils/format";
@@ -94,7 +102,7 @@ export function InvoicesTable(props: {
   const downloadMonthZip = useMonthInvoicesZipDownload(props.setGlobalError);
   const emailMonthZip = useMonthInvoicesZipEmail(props.setGlobalError);
 
-  // Progress dialog (centered)
+  // Progress dialog (local download)
   const [downloadDialog, setDownloadDialog] = React.useState<{
     open: boolean;
     monthKey: string | null;
@@ -120,6 +128,13 @@ export function InvoicesTable(props: {
   const [email, setEmail] = React.useState("");
   const [emailTouched, setEmailTouched] = React.useState(false);
   const [exportBusy, setExportBusy] = React.useState(false);
+
+  // ✅ AlertDialog spinner while sending email
+  const [emailSending, setEmailSending] = React.useState<{
+    open: boolean;
+    monthTitle: string;
+    email: string;
+  }>({ open: false, monthTitle: "", email: "" });
 
   const emailOk = exportMode !== "email" || isValidEmail(email);
   const emailError = exportMode === "email" && emailTouched && !isValidEmail(email);
@@ -165,7 +180,7 @@ export function InvoicesTable(props: {
 
   return (
     <>
-      {/* Centered download progress dialog (local download) */}
+      {/* Centered progress dialog (local download) */}
       <Dialog open={downloadDialog.open}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -196,6 +211,31 @@ export function InvoicesTable(props: {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ✅ AlertDialog spinner while sending email */}
+      <AlertDialog open={emailSending.open}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Envoi en cours…</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="mt-2 flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <div className="space-y-1">
+                  <div className="text-sm">
+                    Factures : <strong>{emailSending.monthTitle}</strong>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Destinataire : <strong>{emailSending.email}</strong>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-muted-foreground">
+                Merci de patienter, l’envoi peut prendre quelques secondes.
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Export choice dialog */}
       <Dialog
@@ -258,7 +298,7 @@ export function InvoicesTable(props: {
             </div>
           </div>
 
-          {/* Choice (card-style, clickable via FieldLabel) */}
+          {/* Choice (FieldLabel clickable cards) */}
           <div className="mt-4 grid gap-3">
             <Label>Mode d’export</Label>
 
@@ -294,9 +334,12 @@ export function InvoicesTable(props: {
               </FieldLabel>
             </RadioGroup>
 
-            {/* Email input (only enabled in email mode) */}
+            {/* Email input */}
             <div className="grid gap-2">
-              <Label htmlFor="export-email-input" className={exportMode === "email" ? "" : "opacity-50"}>
+              <Label
+                htmlFor="export-email-input"
+                className={exportMode === "email" ? "" : "opacity-50"}
+              >
                 Adresse email
               </Label>
               <Input
@@ -329,6 +372,7 @@ export function InvoicesTable(props: {
               disabled={exportBusy || !exportDialog || !emailOk}
               onClick={async () => {
                 if (!exportDialog) return;
+
                 setExportBusy(true);
 
                 try {
@@ -349,17 +393,28 @@ export function InvoicesTable(props: {
                     setExportDialog(null);
                   } else {
                     setEmailTouched(true);
-                    if (!isValidEmail(email)) {
+                    const mail = email.trim();
+                    if (!isValidEmail(mail)) {
                       toast.error("Email invalide");
                       return;
                     }
 
-                    await emailMonthZip(exportDialog.monthKey, email.trim());
-                    toast.success(`Lien envoyé à ${email.trim()}`);
+                    // ✅ show AlertDialog spinner
+                    setEmailSending({ open: true, monthTitle: exportDialog.monthTitle, email: mail });
+
+                    await emailMonthZip(exportDialog.monthKey, mail);
+
+                    toast.success(`Lien envoyé à ${mail}`);
+
+                    // small delay to feel smooth before returning to main UI
+                    await new Promise((r) => setTimeout(r, 700));
+
+                    setEmailSending((prev) => ({ ...prev, open: false }));
                     setExportDialog(null);
                   }
                 } catch (e: any) {
                   toast.error(e?.message ?? "Erreur export");
+                  setTimeout(() => setEmailSending((prev) => ({ ...prev, open: false })), 400);
                 } finally {
                   setExportBusy(false);
                 }
