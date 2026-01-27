@@ -67,3 +67,17 @@ export async function downloadMonthInvoicesZip(
   return blob;
 }
 
+export async function emailMonthInvoicesZip(monthKey: string, email: string) {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/invoices/month/${encodeURIComponent(monthKey)}/documents.zip/email`,
+    {
+      method: "POST",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ email }),
+    }
+  );
+
+  const txt = await res.text();
+  if (!res.ok) throw new Error(txt || "Failed to send ZIP by email");
+  return JSON.parse(txt) as { ok: true };
+}

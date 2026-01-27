@@ -3,7 +3,10 @@ import { Request, Response } from "express";
 import prisma from "../../prisma/client";
 import { InvoiceStructure, Prisma, PrismaClient } from "@prisma/client";
 import archiver from "archiver";
-import { getS3ObjectStream } from "../../lib/s3";
+import { PassThrough } from "stream";
+import { v4 as uuidv4 } from "uuid";
+import { uploadStreamToS3, getPresignedGetUrl, getS3ObjectStream } from "../../lib/s3";
+import { sendZipLinkEmail } from "../../lib/mailer";
 
 /**
  * Prisma client utilisable en dehors ou à l'intérieur d'une transaction
@@ -482,5 +485,119 @@ export async function downloadMonthDocumentsZip(req: Request, res: Response) {
   } catch (e: any) {
     console.error(e);
     return res.status(400).json({ message: e?.message ?? "Erreur génération ZIP" });
+  }
+}
+
+export async function emailMonthDocumentsZip(req: Request, res: Response) {
+  try {
+    const { monthKey } = req.params;
+    const { email } = req.body ?? {};
+
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ message: "Email manquant" });
+    }
+
+    // Basic email validation
+    const okEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!okEmail) return res.status(400).json({ message: "Email invalide" });
+
+    const { start, end } = monthKeyToRange(monthKey);
+    const monthTitle = monthKeyToFrenchTitle(monthKey);
+
+    const invoices = await prisma.invoice.findMany({
+      where: { invoiceDate: { gte: start, lt: end } },
+      include: { supplier: true, documents: { select: { id: true, type: true, url: true } } },
+      orderBy: { invoiceDate: "asc" },
+    });
+
+    if (!invoices.length) {
+      return res.status(404).json({ message: "Aucune facture pour ce mois." });
+    }
+
+    // Collect all docs (all invoices)
+    const docs: Array<{
+      structure: string;
+      supplierName: string;
+      docType: string;
+      s3Key: string;
+      index: number;
+    }> = [];
+
+    for (const inv of invoices) {
+      const supplierName = inv.supplier?.name ?? "Fournisseur";
+      const structureName = structureToFolderName(String(inv.structure ?? "STRUCTURE"));
+
+      inv.documents.forEach((d, idx) => {
+        if (!d?.url) return;
+        docs.push({
+          structure: structureName,
+          supplierName,
+          docType: String(d.type ?? "DOC"),
+          s3Key: String(d.url),
+          index: idx + 1,
+        });
+      });
+    }
+
+    if (!docs.length) {
+      return res.status(404).json({ message: "Aucun document à exporter pour ce mois." });
+    }
+
+    // Create ZIP stream -> upload to S3
+    const archive = archiver("zip", { zlib: { level: 9 } });
+
+    archive.on("warning", (err) => console.warn("ZIP warning:", err));
+    archive.on("error", (err) => {
+      console.error("ZIP error:", err);
+      throw err;
+    });
+
+    const zipStream = new PassThrough();
+    archive.pipe(zipStream);
+
+    // Add files
+    const monthFolder = safeName(monthTitle);
+
+    for (const d of docs) {
+      const stream = await getS3ObjectStream(d.s3Key);
+
+      const ext =
+        d.docType.toUpperCase() === "PDF" ? "pdf" :
+        d.docType.toUpperCase() === "IMAGE" ? "jpg" :
+        "bin";
+
+      const fileName = `${String(d.index).padStart(2, "0")}-${safeName(d.docType)}.${ext}`;
+
+      // ✅ Requested structure:
+      // "Janvier 2026/Nom_De_La_Structure/Nom_Du_Fournisseur/Fichier"
+      const zipPath = `${monthFolder}/${safeName(d.structure)}/${safeName(d.supplierName)}/${fileName}`;
+
+      archive.append(stream, { name: zipPath });
+    }
+
+    await archive.finalize();
+
+    const zipKey = `exports/invoices/${monthKey}/${uuidv4()}.zip`;
+
+    await uploadStreamToS3({
+      key: zipKey,
+      body: zipStream,
+      contentType: "application/zip",
+    });
+
+    // Presigned URL valid 24h
+    const url = await getPresignedGetUrl(zipKey, 24 * 60 * 60);
+
+    await sendZipLinkEmail({
+      to: email,
+      subject: `Export factures — ${monthTitle}`,
+      monthTitle,
+      downloadUrl: url,
+    });
+
+    return res.json({ ok: true });
+  } catch (e: any) {
+    console.error(e);
+    return res.status(500).json({ message: e?.message ?? "Erreur envoi email" });
   }
 }

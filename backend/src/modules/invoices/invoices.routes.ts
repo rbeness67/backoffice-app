@@ -8,6 +8,7 @@ import {
   updateInvoice,
   deleteInvoice,
   downloadMonthDocumentsZip,
+  emailMonthDocumentsZip,
 } from "./invoices.controller";
 
 const router = Router();
@@ -19,6 +20,7 @@ router.get("/:id/documents", authMiddleware, getInvoiceDocuments);
 router.post("/", authMiddleware, createInvoice);
 router.patch("/:id", authMiddleware, updateInvoice);
 router.delete("/:id", authMiddleware, deleteInvoice);
+router.post("/month/:monthKey/documents.zip/email", authMiddleware, emailMonthDocumentsZip);
 
 // ✅ NEW ZIP route
 router.get("/month/:monthKey/documents.zip", authMiddleware, downloadMonthDocumentsZip);
