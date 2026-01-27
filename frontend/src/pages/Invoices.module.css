@@ -1,3 +1,6 @@
+/* Invoices.module.css */
+
+/* Page layout */
 .page {
   width: 100%;
   padding: 24px 16px;
@@ -11,10 +14,7 @@
   }
 }
 
-/* ----------------------------- */
-/* Errors (shadcn destructive)   */
-/* ----------------------------- */
-
+/* Error banner (uses shadcn destructive tokens) */
 .globalError {
   border-radius: 10px;
   padding: 12px 14px;
@@ -25,67 +25,90 @@
   border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
 }
 
-/* ----------------------------- */
-/* Tabs                          */
-/* ----------------------------- */
+/* =========================
+   Tabs (grey shades + emerald only for active text & active badge)
+   ========================= */
 
-.tabs {
+/* shadcn TabsList: wrap instead of scroll */
+.tabsListNoScroll {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  height: auto;
+  padding: 4px;
   align-items: center;
-  margin: 12px 0 16px;
+  justify-content: flex-start;
+  width: 100%;
+
+  border-radius: 999px;
+  background: var(--muted);
 }
 
-.tab {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: transparent;
-  padding: 8px 12px;
-  border-radius: 999px;
-  cursor: pointer;
-  font-weight: 600;
+/* shadcn TabsTrigger */
+.tabTriggerNoScroll {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+
+  padding: 6px 12px;
+  min-height: 32px;
+
+  max-width: 100%;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+
   color: var(--muted-foreground);
-  transition: background-color 0.15s ease, color 0.15s ease,
-    border-color 0.15s ease;
+  background: transparent;
+
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.tab:hover {
-  background: var(--accent);
+/* Hover (inactive only) - grey */
+.tabTriggerNoScroll:not([data-state="active"]):hover {
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
   color: var(--foreground);
 }
 
-.tabActive {
-  background: oklch(0.98 0.02 166);;
-  border-color: var(--primary);
-  color: var(--primary-foreground);
+/* Active tab - grey background, emerald text */
+.tabTriggerNoScroll[data-state="active"] {
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+  color: var(--primary);
+  font-weight: 600;
 }
 
-/* ----------------------------- */
-/* Badge                         */
-/* ----------------------------- */
-
+/* Badge inside tabs - grey */
 .badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 8px;
+
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  border: 1px solid var(--border);
-  background: var(--accent);
-  color: var(--accent-foreground);
+
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+  color: var(--muted-foreground);
 }
 
-/* ----------------------------- */
-/* Responsive tweaks             */
-/* ----------------------------- */
+/* Badge (active) - emerald only here */
+.tabTriggerNoScroll[data-state="active"] .badge {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: transparent;
+}
 
+/* Responsive tweaks */
 @media (max-width: 767px) {
   .page {
     padding: 16px 12px;
@@ -95,32 +118,6 @@
   .globalError {
     overflow-wrap: anywhere;
   }
-}
-
-/* ----------------------------- */
-/* shadcn Tabs — no scroll       */
-/* ----------------------------- */
-
-.tabsListNoScroll {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  height: auto;
-  padding: 6px;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-}
-
-.tabTriggerNoScroll {
-  color: oklch(0.60 0.13 163);
-  min-height: 40px;
-  max-width: 100%;
-  white-space: normal;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: inline-flex;
-  align-items: center;
 }
 
 /* Extra-small screens */

@@ -2,11 +2,37 @@
 import { Request, Response } from "express";
 import prisma from "../../prisma/client";
 import { InvoiceStructure, Prisma, PrismaClient } from "@prisma/client";
+import archiver from "archiver";
+import { getS3ObjectStream } from "../../lib/s3";
 
 /**
  * Prisma client utilisable en dehors ou à l'intérieur d'une transaction
  */
 type DbClient = PrismaClient | Prisma.TransactionClient;
+
+/**
+ * Helpers (monthKey + safe filenames)
+ */
+function monthKeyToRange(monthKey: string): { start: Date; end: Date } {
+  const m = /^(\d{4})-(\d{2})$/.exec(monthKey);
+  if (!m) {
+    throw new Error("Invalid monthKey. Expected format YYYY-MM (e.g. 2026-01)");
+  }
+  const year = Number(m[1]);
+  const month = Number(m[2]); // 01..12
+  if (month < 1 || month > 12) {
+    throw new Error("Invalid month in monthKey. Expected 01..12");
+  }
+
+  // Use UTC to avoid timezone off-by-one
+  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+  const end = new Date(Date.UTC(year, month, 1, 0, 0, 0));
+  return { start, end };
+}
+
+function safeName(name: string) {
+  return (name || "file").replace(/[\\/:*?"<>|]+/g, "-").trim();
+}
 
 /**
  * Génère le prochain numéro de facture pour l'année en cours :
@@ -317,5 +343,144 @@ export async function deleteInvoice(req: Request, res: Response) {
   } catch (e: any) {
     console.error(e);
     return res.status(500).json({ message: "Server error" });
+  }
+}
+
+
+function monthKeyToFrenchTitle(monthKey: string) {
+  const { start } = monthKeyToRange(monthKey);
+  // "janvier 2026"
+  const s = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(start);
+  // "Janvier 2026"
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function structureToFolderName(structure: string) {
+  // ⚠️ adapte si tu as d'autres valeurs d'enum
+  if (structure === "STRUCTURE_1") return "Cocci'Bulles";
+  if (structure === "STRUCTURE_2") return "Milles et une Bulles";
+  return structure;
+}
+
+
+
+/**
+ * GET /invoices/month/:monthKey/documents.zip
+ * Télécharge un ZIP contenant tous les documents de toutes les factures du mois.
+ *
+ * monthKey format: YYYY-MM (ex: 2026-01)
+ *
+ * ZIP structure:
+ *   SupplierName/InvoiceNumber/<docIndex>-<docType>.<ext>
+ */
+export async function downloadMonthDocumentsZip(req: Request, res: Response) {
+  try {
+    const { monthKey } = req.params;
+    const { start, end } = monthKeyToRange(monthKey);
+
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        invoiceDate: { gte: start, lt: end },
+      },
+      include: {
+        supplier: true,
+        documents: { select: { id: true, type: true, url: true } },
+      },
+      orderBy: { invoiceDate: "asc" },
+    });
+
+    if (!invoices.length) {
+      return res.status(404).json({ message: "Aucune facture pour ce mois." });
+    }
+
+    // Collect docs entries
+    const docEntries: Array<{
+      supplierName: string;
+      invoiceNumber: string;
+      structure: string;   // ✅ add
+      docId: string;
+      docType: string;
+      s3Key: string;
+      docIndex: number;
+    }> = [];
+
+    for (const inv of invoices) {
+      const supplierName = inv.supplier?.name ?? "Fournisseur";
+      const invoiceNumber = inv.invoiceNumber ?? String(inv.id);
+
+      inv.documents.forEach((d, idx) => {
+        if (!d?.url) return; // url = S3 key in your app
+        docEntries.push({
+          supplierName,
+          invoiceNumber,
+          structure:String(inv.structure??"STRUCTURE"),
+          docId: d.id,
+          docType: String(d.type ?? "DOC"),
+          s3Key: String(d.url),
+          docIndex: idx + 1,
+        });
+      });
+    }
+
+    if (!docEntries.length) {
+      return res.status(404).json({ message: "Aucun document à télécharger pour ce mois." });
+    }
+
+    // Stream ZIP
+    res.status(200);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${safeName(`factures-${monthKey}`)}.zip"`
+    );
+
+    const archive = archiver("zip", { zlib: { level: 9 } });
+
+    archive.on("warning", (err) => {
+      console.warn("ZIP warning:", err);
+    });
+
+    archive.on("error", (err) => {
+      console.error("ZIP error:", err);
+      if (!res.headersSent) res.status(500);
+      res.end();
+    });
+
+    archive.pipe(res);
+
+    const monthFolder = safeName(monthKeyToFrenchTitle(monthKey));
+
+    for (const e of docEntries) {
+      try {
+        const stream = await getS3ObjectStream(e.s3Key);
+
+        const structureFolder = safeName(structureToFolderName(String(e.structure)));
+        const supplierFolder = safeName(e.supplierName);
+
+        const ext =
+          e.docType.toUpperCase() === "PDF" ? "pdf" :
+          e.docType.toUpperCase() === "IMAGE" ? "jpg" :
+          "bin";
+
+        const fileName = `${String(e.docIndex).padStart(2, "0")}-${safeName(e.docType)}.${ext}`;
+
+        // ✅ Final structure:
+        // "Janvier 2026/Nom_De_La_Structure/Nom_Du_Fournisseur/Fichier"
+        const zipPath = `${monthFolder}/${structureFolder}/${supplierFolder}/${fileName}`;
+
+        archive.append(stream, { name: zipPath });
+      } catch (err: any) {
+        archive.append(
+          `Failed to add docId=${e.docId}\n${String(err?.message ?? err)}\n`,
+          { name: `__FAILED__/${safeName(e.invoiceNumber)}-${safeName(e.docId)}.txt` }
+        );
+      }
+    }
+
+
+    await archive.finalize();
+  } catch (e: any) {
+    console.error(e);
+    return res.status(400).json({ message: e?.message ?? "Erreur génération ZIP" });
   }
 }

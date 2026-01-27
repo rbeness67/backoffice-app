@@ -1,0 +1,81 @@
+/* Sidebar.module.css */
+
+.root {
+  display: flex;
+  flex-direction: column;
+
+  /* ✅ full screen sidebar */
+  min-height: 100svh;
+
+  background: var(--background);
+}
+
+.header {
+  padding: 16px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--foreground);
+}
+
+.subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.nav {
+  /* ✅ links area should NOT stretch vertically */
+  flex: 0 0 auto;
+
+  padding: 12px;
+  display: grid;
+  gap: 6px; /* normal spacing */
+}
+
+.linkBase {
+  display: flex;
+  align-items: center;
+
+  /* ✅ normal link height */
+  border-radius: 8px;
+  padding: 10px 12px; /* was 8px 12px -> slightly smaller, “normal” */
+
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+
+  transition: background-color 0.15s ease, color 0.15s ease;
+  outline: none;
+}
+
+.linkBase:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.linkInactive {
+  color: var(--foreground);
+}
+
+.linkInactive:hover {
+  background: var(--muted);
+}
+
+.linkActive {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.linkActive:hover {
+  background: color-mix(in oklab, var(--primary) 90%, black);
+}
+
+.footer {
+  /* ✅ pushes logout to bottom */
+  margin-top: auto;
+
+  padding: 12px;
+}

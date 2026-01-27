@@ -1,3 +1,20 @@
+/* frontend/src/components/InvoicesTable/InvoicesTable.module.css */
+
+/* ───────────────────────────── */
+/* Grid layout (2 month cards/row) */
+/* ───────────────────────────── */
+
+.monthGrid {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .monthGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* ───────────────────────────── */
 /* Card & layout                 */
 /* ───────────────────────────── */
@@ -5,17 +22,22 @@
 .card {
   overflow: hidden;
   border-radius: 14px;
-  background: hsl(var(--background));
+  background: var(--background);
 }
 
 .inner {
-  padding: 14px;
+  padding: 12px 14px;
+  transition: padding 0.15s ease;
 }
 
-@media (min-width: 640px) {
-  .inner {
-    padding: 14px;
-  }
+/* Open: normal breathing room */
+:global([data-state="open"]) .inner {
+  padding-bottom: 14px;
+}
+
+/* Closed: compact summary */
+:global([data-state="closed"]) .inner {
+  padding-bottom: 8px;
 }
 
 /* ───────────────────────────── */
@@ -23,11 +45,126 @@
 /* ───────────────────────────── */
 
 .loading {
-  font-size: 15px; /* was 14 */
+  font-size: 15px;
   font-weight: 500;
-  color: hsl(var(--muted-foreground));
+  color: var(--muted-foreground);
   text-align: center;
   padding: 36px 0;
+}
+
+/* ───────────────────────────── */
+/* Month header layout           */
+/* ───────────────────────────── */
+
+.monthHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* Stack month / badge / total vertically */
+.monthHeaderStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Closed state: more breathing room + nicer rhythm */
+:global([data-state="closed"]) .monthHeaderStack {
+  padding-left: 6px;
+  gap: 10px;
+}
+
+:global([data-state="closed"]) .monthHeader {
+  align-items: center;
+}
+
+/* Add this to your existing file */
+
+.monthHeaderActions {
+  display: flex;
+  flex-direction: column;   /* ⬅️ stack vertically */
+  align-items: stretch;     /* ⬅️ full-width buttons */
+  gap: 40px;
+}
+
+.monthHeaderActions :global(button):first-child {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.monthHeaderActions :global(button):first-child:hover {
+  background-color: color-mix(in oklab, var(--primary) 90%, black);
+  border-color: color-mix(in oklab, var(--primary) 90%, black);
+}
+
+
+/* Download popover */
+.downloadPopover {
+  width: 280px;
+}
+
+.downloadTitle {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--foreground);
+  margin-bottom: 10px;
+}
+
+.progressWrap {
+  display: grid;
+  gap: 6px;
+}
+
+.progressTrack {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+.progressBar {
+  height: 100%;
+  width: 8%;
+  border-radius: 999px;
+  background: var(--primary);
+  transition: width 0.12s ease;
+}
+
+/* Indeterminate animation when Content-Length not provided */
+.progressIndeterminate {
+  width: 40%;
+  animation: progress-indeterminate 1s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-60%);
+  }
+  50% {
+    transform: translateX(60%);
+  }
+  100% {
+    transform: translateX(-60%);
+  }
+}
+
+.progressMeta {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+
+.monthTotal {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  white-space: nowrap;
 }
 
 /* ───────────────────────────── */
@@ -35,10 +172,10 @@
 /* ───────────────────────────── */
 
 .tableWrap {
-  border: 1px solid hsl(var(--border));
+  border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
-  background: hsl(var(--background));
+  background: var(--background);
 }
 
 /* ───────────────────────────── */
@@ -46,14 +183,18 @@
 /* ───────────────────────────── */
 
 .tableWrap :global(thead th) {
-  font-size: 13px; /* was 12 */
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: hsl(var(--muted-foreground));
-  background: hsl(var(--background));
-  padding-top: 12px;
-  padding-bottom: 12px;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+
+  background: color-mix(in oklab, var(--foreground) 2.5%, transparent);
+
+  padding-top: 10px;
+  padding-bottom: 10px;
+
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 
 /* ───────────────────────────── */
@@ -61,18 +202,18 @@
 /* ───────────────────────────── */
 
 .tableWrap :global(td) {
-  font-size: 15px; /* was 14 */
+  font-size: 14px;
   font-weight: 500;
-  color: hsl(var(--foreground));
-  padding-top: 13px;
-  padding-bottom: 13px;
+  color: var(--foreground);
+  padding-top: 12px;
+  padding-bottom: 12px;
   vertical-align: middle;
+
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 6%, transparent);
 }
 
-/* Invoice number = strongest visual anchor */
-.tableWrap :global(td.font-semibold) {
-  font-weight: 600;
-  color: hsl(var(--foreground));
+.tableWrap :global(tbody tr:last-child td) {
+  border-bottom: none;
 }
 
 /* Numeric alignment */
@@ -81,16 +222,16 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Muted informational cells (date, structure, docs) */
+/* Muted informational cells */
 .tableWrap :global(.text-muted-foreground) {
-  font-size: 14px; /* was 13 */
+  font-size: 13px;
   font-weight: 500;
-  color: hsl(var(--muted-foreground));
+  color: var(--muted-foreground);
 }
 
-/* Amount column pops slightly more */
+/* Amount emphasis */
 .tableWrap :global(td.font-medium) {
-  font-weight: 600;
+  font-weight: 650;
 }
 
 /* ───────────────────────────── */
@@ -102,29 +243,34 @@
 }
 
 .tableWrap :global(tbody tr.group:hover) {
-  background-color: hsl(var(--muted) / 0.35);
+  background-color: color-mix(in oklab, var(--foreground) 4%, transparent);
 }
 
 /* ───────────────────────────── */
-/* Month grouping (card header)  */
+/* Month title & badge (global)  */
 /* ───────────────────────────── */
 
-/* Month title (still smaller than rows) */
-.month-title {
-  font-size: 20px; /* was 13 */
-  font-weight: 900;
-  color: hsl(var(--muted-foreground));
+:global(.month-title) {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
 }
 
-/* Month badge (count) */
-.month-badge {
-  font-size: 12px; /* was 11 */
+:global(.month-badge) {
+  font-size: 12px;
   font-weight: 600;
-  padding: 3px 9px;
+  padding: 3px 10px;
   border-radius: 999px;
-  color: hsl(var(--muted-foreground));
-  border: 1px solid hsl(var(--border));
-  background: oklch(0.70 0.15 162);
+
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--foreground) 3.5%, transparent);
+}
+
+/* Slightly softer badge when closed */
+:global([data-state="closed"]) :global(.month-badge) {
+  padding: 4px 10px;
 }
 
 /* ───────────────────────────── */
@@ -135,23 +281,20 @@
   font-weight: 500;
 }
 
-/* Make destructive action clearer */
 .tableWrap :global(.text-red-600) {
-  font-weight: 600;
+  font-weight: 650;
 }
 
 /* ───────────────────────────── */
-/* ✅ ADDITIONS (no removals)     */
 /* Mobile compact mode helpers   */
 /* ───────────────────────────── */
 
-/* Keep long supplier names from breaking layout */
 .supplierCellCompact {
-  max-width: 0; /* allow ellipsis within table layout */
+  max-width: 0;
 }
 
 .supplierCompactMain {
-  font-weight: 600;
+  font-weight: 650;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -162,38 +305,65 @@
   margin-top: 2px;
   font-size: 12px;
   line-height: 1.2;
-  color: hsl(var(--muted-foreground));
+  color: var(--muted-foreground);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Mobile: tighten paddings a bit */
+/* ───────────────────────────── */
+/* Structure badges (keep colors) */
+/* ───────────────────────────── */
+
+.structureBadgeBase {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--foreground) 3.5%, transparent);
+}
+
+.structureBadgePrimary {
+  color: oklch(0.70 0.12 183);
+}
+
+.structureBadgeSecondary {
+  color: oklch(0.71 0.13 215);
+}
+
+/* ───────────────────────────── */
+/* Mobile tweaks                 */
+/* ───────────────────────────── */
+
 @media (max-width: 640px) {
   .inner {
     padding: 12px;
   }
 
   .tableWrap :global(thead th) {
-    font-size: 12px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    font-size: 11px;
+    padding-top: 9px;
+    padding-bottom: 9px;
   }
 
   .tableWrap :global(td) {
-    font-size: 14px;
-    padding-top: 12px;
-    padding-bottom: 12px;
+    font-size: 13px;
+    padding-top: 11px;
+    padding-bottom: 11px;
   }
 
-  .month-title {
-    font-size: 18px;
+  :global(.month-title) {
+    font-size: 16px;
   }
 
-  .month-badge {
+  :global(.month-badge) {
     font-size: 11px;
-    padding: 2px 8px;
-    background: oklch(0.70 0.15 162);
+    padding: 2px 9px;
+  }
 
+  .monthTotal {
+    font-size: 12px;
   }
 }

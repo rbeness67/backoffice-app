@@ -29,6 +29,7 @@ app.use(
   })
 );
 
+console.log("invoicesRoutes =", invoicesRoutes);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // ✅ utile
