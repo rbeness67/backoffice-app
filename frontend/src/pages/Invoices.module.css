@@ -23,6 +23,10 @@
   background: color-mix(in oklab, var(--destructive) 12%, transparent);
   color: var(--destructive);
   border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
+
+  /* ✅ prevent overflow on long errors */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* =========================
@@ -42,6 +46,9 @@
 
   border-radius: 999px;
   background: var(--muted);
+
+  /* ✅ helps on iOS when wrapping */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* shadcn TabsTrigger */
@@ -99,6 +106,9 @@
   border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
   background: color-mix(in oklab, var(--foreground) 6%, transparent);
   color: var(--muted-foreground);
+
+  /* ✅ stop badge from squishing */
+  flex: 0 0 auto;
 }
 
 /* Badge (active) - emerald only here */
@@ -114,10 +124,6 @@
     padding: 16px 12px;
     gap: 16px;
   }
-
-  .globalError {
-    overflow-wrap: anywhere;
-  }
 }
 
 /* Extra-small screens */
@@ -125,5 +131,8 @@
   .tabTriggerNoScroll {
     flex: 1 1 auto;
     justify-content: space-between;
+
+    /* ✅ keep text readable, avoid huge multi-line buttons */
+    white-space: nowrap;
   }
 }

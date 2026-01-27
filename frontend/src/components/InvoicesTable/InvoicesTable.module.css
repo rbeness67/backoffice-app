@@ -9,6 +9,7 @@
   gap: 16px;
 }
 
+/* 1 column by default (mobile) */
 @media (min-width: 768px) {
   .monthGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -62,6 +63,9 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+
+  /* ✅ prevent overflow on mobile */
+  flex-wrap: wrap;
 }
 
 /* Stack month / badge / total vertically */
@@ -75,15 +79,14 @@
 /* Closed state: more breathing room + nicer rhythm */
 :global([data-state="closed"]) .monthHeaderStack {
   padding-left: 6px;
-  gap: 10px;
+  gap: 16px;
 }
 
 :global([data-state="closed"]) .monthHeader {
   align-items: center;
 }
 
-/* Add this to your existing file */
-
+/* Actions: stacked, full-width on mobile; row on desktop */
 .monthHeaderActions {
   display: flex;
   flex-direction: column;   /* ⬅️ stack vertically */
@@ -103,9 +106,48 @@
 }
 
 
+@media (min-width: 640px) {
+ .monthHeaderActions {
+  display: flex;
+  flex-direction: column;   /* ⬅️ stack vertically */
+  align-items: stretch;     /* ⬅️ full-width buttons */
+  gap: 40px;
+}
+}
+
+.monthHeaderActions :global(button):first-child {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.monthHeaderActions :global(button):first-child:hover {
+  background-color: color-mix(in oklab, var(--primary) 90%, black);
+  border-color: color-mix(in oklab, var(--primary) 90%, black);
+}
+
+@media (min-width: 640px) {
+  .monthHeaderActions :global(button) {
+    width: auto;
+  }
+}
+
+/* Primary first button styling */
+.monthHeaderActions :global(button):first-child {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.monthHeaderActions :global(button):first-child:hover {
+  background-color: color-mix(in oklab, var(--primary) 90%, black);
+  border-color: color-mix(in oklab, var(--primary) 90%, black);
+}
+
 /* Download popover */
 .downloadPopover {
   width: 280px;
+  max-width: 92vw; /* ✅ fit on mobile */
 }
 
 .downloadTitle {
@@ -159,7 +201,6 @@
   color: var(--muted-foreground);
 }
 
-
 .monthTotal {
   font-size: 13px;
   font-weight: 500;
@@ -176,6 +217,18 @@
   border-radius: 12px;
   overflow: hidden;
   background: var(--background);
+
+  /* ✅ allow horizontal scroll if needed on very small screens */
+  max-width: 100%;
+}
+
+/* You can add this wrapper in JSX if needed:
+   <div className={styles.tableScroll}><Table .../></div>
+*/
+.tableScroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ───────────────────────────── */
