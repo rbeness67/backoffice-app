@@ -231,36 +231,6 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        <Card className="chart-card">
-          <CardHeader className="chart-card-header">
-            <CardTitle className="chart-title">Nombre de factures par mois</CardTitle>
-            <div className="chart-subtitle">Derniers mois disponibles</div>
-          </CardHeader>
-          <CardContent className="chart-card-content">
-            {data.loading ? (
-              <Skeleton className="h-[260px] w-full" />
-            ) : !monthLineData.length ? (
-              <div className="text-sm text-muted-foreground py-16 text-center">Aucune donnée disponible</div>
-            ) : (
-              <ChartContainer config={chartConfig} className="h-[260px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={monthLineData}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="count"
-                      stroke="var(--color-count)"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Pie chart */}
         <Card className="chart-card">

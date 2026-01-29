@@ -31,7 +31,7 @@ export function DeleteInvoiceDialog({ hook }: { hook: HookShape }) {
         <AlertDialogHeader>
           <AlertDialogTitle>Supprimer une facture</AlertDialogTitle>
           <AlertDialogDescription>
-            Tu es sur le point de supprimer {label}
+            Vous êtes sur le point de supprimer {label}
             {h.toDelete?.supplierName ? ` (${h.toDelete.supplierName})` : ""}. Cette
             action est irréversible.
           </AlertDialogDescription>

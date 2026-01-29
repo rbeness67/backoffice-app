@@ -4,34 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { format, parseISO, isValid } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldSet,
-} from "@/components/ui/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +26,24 @@ import { STRUCTURES } from "../../utils/format";
 import { getStructureLabel } from "@/utils/stuctureLabel";
 import type { Supplier } from "@/api/suppliers";
 import styles from "./CreateInvoiceSheet.module.css";
+
+function controlClass(opts: { filled: boolean; invalid?: boolean }) {
+  const { filled, invalid } = opts;
+
+  // Keep shadcn base behavior, just adjust colors based on state
+  const base =
+    "w-full min-h-11 rounded-md";
+
+  if (invalid) {
+    return `${base} border-destructive focus-visible:ring-destructive focus-visible:ring-2`;
+  }
+
+  if (filled) {
+    return `${base} focus-visible:border-emerald-500 focus-visible:ring-emerald-500 focus-visible:ring-2`;
+  }
+
+  return `${base} focus-visible:ring-2`;
+}
 
 export function CreateInvoiceSheet(props: {
   open: boolean;
@@ -124,8 +121,7 @@ export function CreateInvoiceSheet(props: {
 
   const filesOk = (p.files?.length ?? 0) > 0;
 
-  const canSubmit =
-    supplierOk && invoiceDateOk && structureOk && amountOk && filesOk;
+  const canSubmit = supplierOk && invoiceDateOk && structureOk && amountOk && filesOk;
 
   const showInvalid = submitted;
 
@@ -174,8 +170,7 @@ export function CreateInvoiceSheet(props: {
                       <FieldLabel>Numéro de facture</FieldLabel>
                       <div className={styles.readonly}>{p.nextNumber || "…"}</div>
                       <FieldDescription>
-                        Généré automatiquement (JEL-YY-XXX) basé sur l’année en
-                        cours.
+                        Généré automatiquement (JEL-YY-XXX) basé sur l’année en cours.
                       </FieldDescription>
                     </Field>
                   </FieldSet>
@@ -194,9 +189,7 @@ export function CreateInvoiceSheet(props: {
                           type="button"
                           className={styles.linkBtn}
                           onClick={() => {
-                            p.setSupplierMode(
-                              p.supplierMode === "existing" ? "new" : "existing"
-                            );
+                            p.setSupplierMode(p.supplierMode === "existing" ? "new" : "existing");
                             p.setSupplierId("");
                             p.setSupplierNewName("");
                           }}
@@ -210,7 +203,10 @@ export function CreateInvoiceSheet(props: {
                       {p.supplierMode === "existing" ? (
                         <Select value={p.supplierId} onValueChange={p.setSupplierId}>
                           <SelectTrigger
-                            className="w-full"
+                            className={controlClass({
+                              filled: p.supplierId.trim().length > 0,
+                              invalid: showInvalid && !supplierOk,
+                            })}
                             aria-invalid={showInvalid ? !supplierOk : undefined}
                           >
                             <SelectValue placeholder="Choisir un fournisseur" />
@@ -225,7 +221,10 @@ export function CreateInvoiceSheet(props: {
                         </Select>
                       ) : (
                         <Input
-                          className={styles.control}
+                          className={controlClass({
+                            filled: p.supplierNewName.trim().length > 0,
+                            invalid: showInvalid && !supplierOk,
+                          })}
                           value={p.supplierNewName}
                           onChange={(e) => p.setSupplierNewName(e.target.value)}
                           placeholder="Nom du fournisseur"
@@ -234,9 +233,7 @@ export function CreateInvoiceSheet(props: {
                       )}
 
                       {showInvalid && !supplierOk && (
-                        <FieldDescription className={styles.fieldError}>
-                          Champ requis.
-                        </FieldDescription>
+                        <FieldDescription className={styles.fieldError}>Champ requis.</FieldDescription>
                       )}
                     </Field>
 
@@ -249,13 +246,17 @@ export function CreateInvoiceSheet(props: {
                           <Button
                             variant="outline"
                             data-empty={!p.invoiceDate}
-                            className="w-full justify-start text-left font-normal data-[empty=true]:text-muted-foreground"
+                            className={[
+                              "w-full justify-start text-left font-normal data-[empty=true]:text-muted-foreground",
+                              controlClass({
+                                filled: p.invoiceDate.trim().length > 0,
+                                invalid: showInvalid && !invoiceDateOk,
+                              }),
+                            ].join(" ")}
                             aria-invalid={showInvalid ? !invoiceDateOk : undefined}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {invoiceDateAsDate
-                              ? format(invoiceDateAsDate, "PPP")
-                              : "Choisir une date"}
+                            {invoiceDateAsDate ? format(invoiceDateAsDate, "PPP") : "Choisir une date"}
                           </Button>
                         </PopoverTrigger>
 
@@ -273,9 +274,7 @@ export function CreateInvoiceSheet(props: {
                       </Popover>
 
                       {showInvalid && !invoiceDateOk && (
-                        <FieldDescription className={styles.fieldError}>
-                          Champ requis.
-                        </FieldDescription>
+                        <FieldDescription className={styles.fieldError}>Champ requis.</FieldDescription>
                       )}
                     </Field>
 
@@ -285,7 +284,10 @@ export function CreateInvoiceSheet(props: {
 
                       <Select value={p.structure} onValueChange={p.setStructure}>
                         <SelectTrigger
-                          className="w-full"
+                          className={controlClass({
+                            filled: String(p.structure ?? "").trim().length > 0,
+                            invalid: showInvalid && !structureOk,
+                          })}
                           aria-invalid={showInvalid ? !structureOk : undefined}
                         >
                           <SelectValue placeholder="Sélectionner une structure" />
@@ -301,9 +303,7 @@ export function CreateInvoiceSheet(props: {
                       </Select>
 
                       {showInvalid && !structureOk && (
-                        <FieldDescription className={styles.fieldError}>
-                          Champ requis.
-                        </FieldDescription>
+                        <FieldDescription className={styles.fieldError}>Champ requis.</FieldDescription>
                       )}
                     </Field>
 
@@ -312,8 +312,11 @@ export function CreateInvoiceSheet(props: {
                       <FieldLabel htmlFor="createAmountTTC">Montant TTC</FieldLabel>
                       <Input
                         id="createAmountTTC"
-                        className={styles.control}
                         inputMode="decimal"
+                        className={controlClass({
+                          filled: p.amountTTC.trim().length > 0,
+                          invalid: showInvalid && !amountOk,
+                        })}
                         value={p.amountTTC}
                         onChange={(e) => p.setAmountTTC(e.target.value)}
                         placeholder="120.00"
@@ -330,13 +333,14 @@ export function CreateInvoiceSheet(props: {
                     <Field>
                       <FieldLabel>Documents (PDF ou images)</FieldLabel>
                       <Input
-                        className={styles.control}
                         type="file"
                         accept="application/pdf,image/*"
                         multiple
-                        onChange={(e) =>
-                          p.setFiles(Array.from(e.target.files ?? []))
-                        }
+                        className={controlClass({
+                          filled: (p.files?.length ?? 0) > 0,
+                          invalid: showInvalid && !filesOk,
+                        })}
+                        onChange={(e) => p.setFiles(Array.from(e.target.files ?? []))}
                         aria-invalid={showInvalid ? !filesOk : undefined}
                       />
 
@@ -351,9 +355,7 @@ export function CreateInvoiceSheet(props: {
                       )}
 
                       {showInvalid && !filesOk && (
-                        <FieldDescription className={styles.fieldError}>
-                          Champ requis.
-                        </FieldDescription>
+                        <FieldDescription className={styles.fieldError}>Champ requis.</FieldDescription>
                       )}
                     </Field>
                   </FieldSet>
@@ -398,10 +400,7 @@ export function CreateInvoiceSheet(props: {
       </Sheet>
 
       {/* Duplicate confirmation dialog */}
-      <AlertDialog
-        open={p.confirmDuplicateOpen}
-        onOpenChange={(v) => (!v ? p.cancelDuplicate() : null)}
-      >
+      <AlertDialog open={p.confirmDuplicateOpen} onOpenChange={(v) => (!v ? p.cancelDuplicate() : null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Facture potentiellement en doublon</AlertDialogTitle>
@@ -430,10 +429,7 @@ export function CreateInvoiceSheet(props: {
             <AlertDialogCancel disabled={p.saving} onClick={p.cancelDuplicate}>
               Annuler
             </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={p.saving}
-              onClick={p.confirmDuplicateAndSubmit}
-            >
+            <AlertDialogAction disabled={p.saving} onClick={p.confirmDuplicateAndSubmit}>
               Créer quand même
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -444,9 +440,7 @@ export function CreateInvoiceSheet(props: {
       <AlertDialog open={resultOpen} onOpenChange={setResultOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {resultKind === "success" ? "Succès" : "Erreur"}
-            </AlertDialogTitle>
+            <AlertDialogTitle>{resultKind === "success" ? "Succès" : "Erreur"}</AlertDialogTitle>
             <AlertDialogDescription>{resultMsg}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
