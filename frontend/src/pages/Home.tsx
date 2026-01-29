@@ -18,8 +18,6 @@ import {
   Bar,
   XAxis,
   CartesianGrid,
-  LineChart,
-  Line,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -122,10 +120,6 @@ export default function Home() {
     return sorted.slice(Math.max(0, sorted.length - 6));
   }, [normalized, hasInvoices]);
 
-  // Line chart: nombre de factures par mois (6 derniers mois)
-  const monthLineData = useMemo(() => {
-    return monthBarData.map((m) => ({ label: m.label, count: m.count }));
-  }, [monthBarData]);
 
   // Pie chart: TTC par structure
   const structurePieData = useMemo(() => {
