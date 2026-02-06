@@ -118,41 +118,54 @@ export default function InvoicesPage() {
     return normalizedItems.filter((it: any) => it.structureLabel === tab);
   }, [normalizedItems, tab]);
 
-  // ✅ Group the currently displayed items by Month
-  const monthGroups = useMemo(() => {
-    const sorted = [...filteredItems].sort((a: any, b: any) => {
-      const da = toDateSafe(a.invoiceDate);
-      const db = toDateSafe(b.invoiceDate);
-      const ta = da ? da.getTime() : -Infinity;
-      const tb = db ? db.getTime() : -Infinity;
-      return tb - ta;
-    });
+  // ✅ Group the currently displayed items by Year -> Month (Jan -> Dec)
+  const yearCards = useMemo(() => {
+    type MonthGroup = { key: string; title: string; monthDate: Date | null; items: any[] };
+    type YearCard = { year: number; groups: MonthGroup[] };
 
-    const map = new Map<string, { key: string; title: string; monthDate: Date | null; items: any[] }>();
+    const byYear = new Map<number, Map<string, MonthGroup>>();
+    const noDate: MonthGroup = { key: "no-date", title: "Sans date", monthDate: null, items: [] };
 
-    for (const inv of sorted) {
+    for (const inv of filteredItems) {
       const d = toDateSafe(inv.invoiceDate);
 
       if (!d) {
-        const k = "no-date";
-        if (!map.has(k)) map.set(k, { key: k, title: "Sans date", monthDate: null, items: [] });
-        map.get(k)!.items.push(inv);
+        noDate.items.push(inv);
         continue;
       }
 
-      const k = monthKey(d);
-      if (!map.has(k)) {
-        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
-        map.set(k, { key: k, title: monthLabelFR(monthStart), monthDate: monthStart, items: [] });
+      const year = d.getFullYear();
+      const k = monthKey(d); // "YYYY-MM"
+      const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+
+      if (!byYear.has(year)) byYear.set(year, new Map());
+      const yearMap = byYear.get(year)!;
+
+      if (!yearMap.has(k)) {
+        yearMap.set(k, {
+          key: k,
+          title: monthLabelFR(monthStart),
+          monthDate: monthStart,
+          items: [],
+        });
       }
-      map.get(k)!.items.push(inv);
+      yearMap.get(k)!.items.push(inv);
     }
 
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.key === "no-date") return 1;
-      if (b.key === "no-date") return -1;
-      return (b.monthDate?.getTime() ?? 0) - (a.monthDate?.getTime() ?? 0);
-    });
+    // ✅ Build cards sorted by year desc (newest year first)
+    const cards: YearCard[] = Array.from(byYear.entries())
+      .sort(([a], [b]) => b - a)
+      .map(([year, monthMap]) => {
+        // ✅ months Jan -> Dec
+        const groups = Array.from(monthMap.values()).sort((a, b) => {
+          const ma = a.monthDate?.getMonth() ?? 0;
+          const mb = b.monthDate?.getMonth() ?? 0;
+          return ma - mb;
+        });
+        return { year, groups };
+      });
+
+    return { cards, noDate: noDate.items.length ? noDate : null };
   }, [filteredItems]);
 
   const create = useInvoiceCreate({
@@ -221,17 +234,46 @@ export default function InvoicesPage() {
           ))}
         </TabsList>
 
-
         <TabsContent value={tab} className="mt-4">
-          <InvoicesTable
-            loading={data.loading}
-            items={filteredItems}
-            groups={monthGroups}
-            onDownload={onDownload}
-            onEdit={edit.openEdit}
-            onDelete={del.ask}
-            compact={isCompact} // ✅ NEW: table will render only Supplier+Amount on small screens
-          />
+          {/* ✅ One card per year, months ordered Jan -> Dec */}
+          <div className="flex flex-col gap-4">
+            {yearCards.cards.map((card) => (
+              <div key={card.year} className="rounded-2xl border bg-background p-4">
+                <div className="mb-3 flex items-baseline justify-between">
+                  <h2 className="text-lg font-semibold">{card.year}</h2>
+                  <span className="text-sm text-muted-foreground">
+                    {card.groups.reduce((acc, g) => acc + g.items.length, 0)} factures
+                  </span>
+                </div>
+
+                <InvoicesTable
+                  loading={data.loading}
+                  items={card.groups.flatMap((g) => g.items)}
+                  groups={card.groups}
+                  onDownload={onDownload}
+                  onEdit={edit.openEdit}
+                  onDelete={del.ask}
+                  compact={isCompact}
+                />
+              </div>
+            ))}
+
+            {/* Optional: keep "Sans date" in its own card at the end */}
+            {yearCards.noDate && (
+              <div className="rounded-2xl border bg-background p-4">
+                <h2 className="mb-3 text-lg font-semibold">Sans date</h2>
+                <InvoicesTable
+                  loading={data.loading}
+                  items={yearCards.noDate.items}
+                  groups={[yearCards.noDate]}
+                  onDownload={onDownload}
+                  onEdit={edit.openEdit}
+                  onDelete={del.ask}
+                  compact={isCompact}
+                />
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
