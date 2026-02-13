@@ -508,7 +508,13 @@ export function InvoicesTable(props: {
                         </TableHeader>
 
                         <TableBody>
-                          {g.items.map((row) => (
+                          {[...g.items]
+                          .sort(
+                            (a, b) =>
+                              new Date(b.invoiceDate).getTime() -
+                              new Date(a.invoiceDate).getTime()
+                          )
+                          .map((row) => (
                             <TableRow key={row.id} className="group">
                               {compact ? (
                                 <>
