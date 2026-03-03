@@ -277,37 +277,6 @@ export default function InvoicesPage() {
         </TabsContent>
       </Tabs>
 
-      <CreateInvoiceSheet
-        open={create.open}
-        setOpen={create.setOpen}
-        saving={create.saving}
-        error={create.error}
-        nextNumber={create.nextNumber}
-        suppliers={data.suppliers}
-        supplierMode={create.supplierMode}
-        setSupplierMode={create.setSupplierMode}
-        supplierId={create.supplierId}
-        setSupplierId={create.setSupplierId}
-        supplierNewName={create.supplierNewName}
-        setSupplierNewName={create.setSupplierNewName}
-        invoiceDate={create.invoiceDate}
-        setInvoiceDate={create.setInvoiceDate}
-        amountTTC={create.amountTTC}
-        setAmountTTC={create.setAmountTTC}
-        structure={create.structure}
-        setStructure={create.setStructure}
-        files={create.files}
-        setFiles={create.setFiles}
-        confirmDuplicateOpen={create.confirmDuplicateOpen}
-        duplicateFound={create.duplicateFound}
-        confirmDuplicateAndSubmit={create.confirmDuplicateAndSubmit}
-        cancelDuplicate={create.cancelDuplicate}
-        onCancel={() => {
-          create.setOpen(false);
-          create.reset();
-        }}
-        onSubmit={create.submit}
-      />
 
       <EditInvoiceSheet hook={edit} suppliers={data.suppliers} />
       <DeleteInvoiceDialog hook={del} />
