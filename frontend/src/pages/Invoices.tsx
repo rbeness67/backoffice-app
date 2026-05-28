@@ -9,7 +9,6 @@ import { useInvoiceDownload } from "@/hooks/invoices/useInvoiceDownload";
 
 import { InvoicesHeader } from "@/components/InvoicesHeader/InvoicesHeader";
 import { InvoicesTable } from "@/components/InvoicesTable/InvoicesTable";
-import { CreateInvoiceSheet } from "@/components/CreateInvoiceSheet/CreateInvoiceSheet";
 import { DeleteInvoiceDialog } from "@/components/DeleteInvoiceDialog/DeleteInvoiceDialog";
 import { EditInvoiceSheet } from "@/components/EditInvoiceSheet/EditInvoiceSheet";
 
