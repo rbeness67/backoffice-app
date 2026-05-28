@@ -12,7 +12,7 @@ export function useInvoicesData() {
     setLoading(true);
     setError("");
     try {
-      const [inv, sup] = await Promise.all([getInvoices(1, 50), getSuppliers()]);
+      const [inv, sup] = await Promise.all([getInvoices(1, 500), getSuppliers()]);
       setItems(inv.items);
       setSuppliers(sup.items);
     } catch (e: any) {
