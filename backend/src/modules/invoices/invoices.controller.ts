@@ -71,7 +71,7 @@ export async function listInvoices(req: Request, res: Response) {
   const page = Math.max(parseInt(String(req.query.page ?? "1"), 10), 1);
   const pageSize = Math.min(
     Math.max(parseInt(String(req.query.pageSize ?? "20"), 10), 1),
-    100
+    300
   );
   const skip = (page - 1) * pageSize;
 
